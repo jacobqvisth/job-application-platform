@@ -37,6 +37,7 @@ import type {
   RemoteType,
 } from "@/lib/types/database";
 import { ApplicationTimeline } from "./application-timeline";
+import { ApplicationEmails } from "@/components/emails/application-emails";
 
 const STATUS_OPTIONS: ApplicationStatus[] = [
   "saved",
@@ -403,6 +404,17 @@ export function ApplicationDetail({
               Timeline
             </h3>
             <ApplicationTimeline events={application.application_events} />
+          </div>
+
+          <Separator />
+
+          {/* Emails */}
+          <div className="space-y-3">
+            <h3 className="flex items-center gap-1.5 text-sm font-medium">
+              <Mail className="size-3.5" />
+              Emails
+            </h3>
+            <ApplicationEmails applicationId={application.id} />
           </div>
 
           <Separator />

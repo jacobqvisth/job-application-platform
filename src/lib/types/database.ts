@@ -87,3 +87,48 @@ export type UpdateApplicationData = Partial<CreateApplicationData> & {
   cover_letter?: string | null;
   next_followup_at?: string | null;
 };
+
+// Email types
+export type EmailClassification =
+  | "rejection"
+  | "interview_invite"
+  | "followup"
+  | "offer"
+  | "general"
+  | "unclassified";
+
+export type EmailDirection = "inbound" | "outbound";
+
+export interface GmailConnection {
+  id: string;
+  user_id: string;
+  email: string;
+  access_token: string;
+  refresh_token: string;
+  token_expires_at: string;
+  last_synced_at: string | null;
+  sync_cursor: string | null;
+  created_at: string;
+}
+
+export interface Email {
+  id: string;
+  user_id: string;
+  gmail_message_id: string;
+  gmail_thread_id: string;
+  application_id: string | null;
+  from_address: string;
+  to_address: string;
+  subject: string;
+  body_preview: string | null;
+  body_html: string | null;
+  received_at: string;
+  direction: EmailDirection;
+  classification: EmailClassification | null;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface EmailWithApplication extends Email {
+  applications: Pick<Application, "id" | "company" | "role" | "status"> | null;
+}

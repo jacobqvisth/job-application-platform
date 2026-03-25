@@ -43,8 +43,13 @@ src/
 
 ## Environment Variables
 ```
-NEXT_PUBLIC_SUPABASE_URL     # Supabase project URL
+NEXT_PUBLIC_SUPABASE_URL      # Supabase project URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY # Supabase anonymous key
+GOOGLE_CLIENT_ID              # Google OAuth client ID (same as Supabase OAuth)
+GOOGLE_CLIENT_SECRET          # Google OAuth client secret
+NEXT_PUBLIC_APP_URL           # App URL (https://job-application-platform-lake.vercel.app)
+ANTHROPIC_API_KEY             # Anthropic API key for email classification and reply drafting
+CRON_SECRET                   # Secret for Vercel Cron job authentication
 ```
 
 ## Common Commands

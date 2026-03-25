@@ -1,10 +1,13 @@
+import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
+import { getGmailConnection } from "@/lib/data/emails";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Mail, Bot, LogOut } from "lucide-react";
 import { SignOutButton } from "./sign-out-button";
+import { GmailConnectionCard } from "@/components/settings/gmail-connection";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -20,6 +23,10 @@ export default async function SettingsPage() {
     .map((n: string) => n[0])
     .join("")
     .toUpperCase();
+
+  const gmailConnection = user
+    ? await getGmailConnection(supabase, user.id)
+    : null;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -58,15 +65,9 @@ export default async function SettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">Gmail</p>
-              <p className="text-xs text-muted-foreground">
-                Auto-import application emails and track responses
-              </p>
-            </div>
-            <Badge variant="secondary">Coming Soon</Badge>
-          </div>
+          <Suspense fallback={<div className="text-sm text-muted-foreground">Loading...</div>}>
+            <GmailConnectionCard connection={gmailConnection} />
+          </Suspense>
           <Separator />
           <div className="flex items-center justify-between">
             <div>
