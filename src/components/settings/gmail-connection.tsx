@@ -5,10 +5,9 @@ import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Check, RefreshCw, Unplug } from "lucide-react";
+import { Check, Loader2, RefreshCw, Unplug } from "lucide-react";
 import { disconnectGmailAction } from "@/app/(protected)/dashboard/actions/email-actions";
 import type { GmailConnection } from "@/lib/types/database";
-import Link from "next/link";
 
 interface GmailConnectionProps {
   connection: GmailConnection | null;
@@ -17,6 +16,10 @@ interface GmailConnectionProps {
 export function GmailConnectionCard({ connection }: GmailConnectionProps) {
   const [isPending, startTransition] = useTransition();
   const [syncing, setSyncing] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(
+    connection?.last_synced_at ?? null
+  );
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -53,6 +56,9 @@ export function GmailConnectionCard({ connection }: GmailConnectionProps) {
         toast.success(
           `Synced ${data.synced} emails, classified ${data.classified}`
         );
+        if (data.last_synced_at) {
+          setLastSyncedAt(data.last_synced_at);
+        }
       } else {
         toast.error(data.error || "Sync failed");
       }
@@ -83,8 +89,16 @@ export function GmailConnectionCard({ connection }: GmailConnectionProps) {
             Auto-import application emails and track responses
           </p>
         </div>
-        <Button asChild size="sm">
-          <Link href="/api/gmail/connect">Connect</Link>
+        <Button
+          size="sm"
+          disabled={connecting}
+          onClick={() => {
+            setConnecting(true);
+            window.location.href = "/api/gmail/connect";
+          }}
+        >
+          {connecting && <Loader2 className="size-4 animate-spin" />}
+          {connecting ? "Connecting..." : "Connect"}
         </Button>
       </div>
     );
@@ -103,8 +117,10 @@ export function GmailConnectionCard({ connection }: GmailConnectionProps) {
         </Badge>
       </div>
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        {connection.last_synced_at && (
-          <span>Last synced: {timeAgo(connection.last_synced_at)}</span>
+        {lastSyncedAt ? (
+          <span>Last synced: {timeAgo(lastSyncedAt)}</span>
+        ) : (
+          <span>Never synced</span>
         )}
       </div>
       <div className="flex gap-2">

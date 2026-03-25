@@ -191,7 +191,7 @@ async function fullSync(
 
   const listResponse = await gmail.users.messages.list({
     userId: "me",
-    q: `after:${after}`,
+    q: `category:primary after:${after}`,
     maxResults: 200,
   });
 
@@ -221,6 +221,13 @@ async function fullSync(
   return newEmailCount;
 }
 
+const NON_PRIMARY_LABELS = [
+  "CATEGORY_PROMOTIONS",
+  "CATEGORY_SOCIAL",
+  "CATEGORY_UPDATES",
+  "CATEGORY_FORUMS",
+];
+
 async function fetchAndStoreMessage(
   gmail: gmail_v1.Gmail,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -244,6 +251,12 @@ async function fetchAndStoreMessage(
       id: messageId,
       format: "full",
     });
+
+    // Skip non-Primary inbox messages (Promotions, Social, Updates, Forums)
+    const msgLabels = msgResponse.data.labelIds ?? [];
+    if (NON_PRIMARY_LABELS.some((label) => msgLabels.includes(label))) {
+      return false;
+    }
 
     const parsed = parseGmailMessage(msgResponse.data, userEmail);
 

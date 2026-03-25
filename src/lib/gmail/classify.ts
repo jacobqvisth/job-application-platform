@@ -10,6 +10,40 @@ const VALID_CLASSIFICATIONS: EmailClassification[] = [
   "general",
 ];
 
+const JOB_KEYWORDS = [
+  "application",
+  "applied",
+  "interview",
+  "offer",
+  "position",
+  "role",
+  "opportunity",
+  "candidate",
+  "hiring",
+  "recruiter",
+  "recruitment",
+  "resume",
+  "cv",
+  "job",
+  "career",
+  "talent",
+  "screening",
+  "assessment",
+  "onboarding",
+  "rejected",
+  "regret",
+  "unfortunately",
+  "congratulations",
+  "next steps",
+  "schedule",
+  "shortlisted",
+];
+
+function isJobRelatedEmail(subject: string, fromAddress: string): boolean {
+  const text = `${subject} ${fromAddress}`.toLowerCase();
+  return JOB_KEYWORDS.some((keyword) => text.includes(keyword));
+}
+
 export async function classifyEmails(userId: string): Promise<number> {
   const supabase = await createClient();
   const anthropic = new Anthropic({
@@ -32,6 +66,16 @@ export async function classifyEmails(userId: string): Promise<number> {
 
   for (const email of emails) {
     try {
+      // Pre-filter: skip Claude API if email doesn't look job-related
+      if (!isJobRelatedEmail(email.subject, email.from_address)) {
+        await supabase
+          .from("emails")
+          .update({ classification: "general" })
+          .eq("id", email.id);
+        classified++;
+        continue;
+      }
+
       const response = await anthropic.messages.create({
         model: "claude-haiku-4-5-20251001",
         max_tokens: 50,

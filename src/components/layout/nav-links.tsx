@@ -10,6 +10,7 @@ import {
   Mail,
   Search,
   Settings,
+  User,
 } from "lucide-react";
 
 const links = [
@@ -17,6 +18,7 @@ const links = [
   { href: "/dashboard/applications", label: "Applications", icon: Kanban },
   { href: "/dashboard/resumes", label: "Resumes", icon: FileText },
   { href: "/dashboard/emails", label: "Emails", icon: Mail },
+  { href: "/dashboard/profile", label: "Profile", icon: User },
   { href: "/dashboard/jobs", label: "Jobs", icon: Search },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];

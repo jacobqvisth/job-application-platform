@@ -132,3 +132,150 @@ export interface Email {
 export interface EmailWithApplication extends Email {
   applications: Pick<Application, "id" | "company" | "role" | "status"> | null;
 }
+
+// Resume types
+export type ResumeTemplate = "clean" | "modern" | "compact";
+
+export interface SummarySectionContent {
+  text: string;
+}
+
+export interface ExperienceItem {
+  id: string;
+  company: string;
+  title: string;
+  location: string;
+  startDate: string;
+  endDate: string | null;
+  bullets: string[];
+}
+
+export interface ExperienceSectionContent {
+  items: ExperienceItem[];
+}
+
+export interface EducationItem {
+  id: string;
+  institution: string;
+  degree: string;
+  field: string;
+  startDate: string;
+  endDate: string | null;
+  gpa?: string;
+  notes?: string;
+}
+
+export interface EducationSectionContent {
+  items: EducationItem[];
+}
+
+export interface SkillCategory {
+  id: string;
+  name: string;
+  skills: string[];
+}
+
+export interface SkillsSectionContent {
+  categories: SkillCategory[];
+}
+
+export interface CertificationItem {
+  id: string;
+  name: string;
+  issuer: string;
+  date: string;
+  url?: string;
+}
+
+export interface CertificationsSectionContent {
+  items: CertificationItem[];
+}
+
+export type LanguageProficiency =
+  | "native"
+  | "fluent"
+  | "advanced"
+  | "intermediate"
+  | "basic";
+
+export interface LanguageItem {
+  id: string;
+  language: string;
+  proficiency: LanguageProficiency;
+}
+
+export interface LanguagesSectionContent {
+  items: LanguageItem[];
+}
+
+export interface CustomSectionContent {
+  text: string;
+}
+
+export type ResumeSectionType =
+  | "summary"
+  | "experience"
+  | "education"
+  | "skills"
+  | "certifications"
+  | "languages"
+  | "custom";
+
+export type ResumeSectionContent =
+  | SummarySectionContent
+  | ExperienceSectionContent
+  | EducationSectionContent
+  | SkillsSectionContent
+  | CertificationsSectionContent
+  | LanguagesSectionContent
+  | CustomSectionContent;
+
+export interface ResumeSection {
+  id: string;
+  type: ResumeSectionType;
+  title: string;
+  visible: boolean;
+  order: number;
+  content: ResumeSectionContent;
+}
+
+export interface ResumeContent {
+  template: ResumeTemplate;
+  sections: ResumeSection[];
+}
+
+export interface Resume {
+  id: string;
+  user_id: string;
+  name: string;
+  content: ResumeContent;
+  is_base: boolean;
+  tailored_for_application_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ResumeWithApplication extends Resume {
+  applications: Pick<Application, "id" | "company" | "role"> | null;
+}
+
+export interface UserProfileData {
+  id: string;
+  user_id: string;
+  work_history: ExperienceItem[];
+  education: EducationItem[];
+  skills: SkillCategory[];
+  certifications: CertificationItem[];
+  languages: LanguageItem[];
+  summary: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type CreateResumeData = Pick<Resume, "name" | "content" | "is_base"> & {
+  tailored_for_application_id?: string | null;
+};
+
+export type UpdateResumeData = Partial<
+  Pick<Resume, "name" | "content" | "is_base" | "tailored_for_application_id">
+>;

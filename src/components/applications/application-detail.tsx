@@ -17,6 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import {
   Calendar,
+  FileText,
   MapPin,
   Globe,
   User,
@@ -38,6 +39,7 @@ import type {
 } from "@/lib/types/database";
 import { ApplicationTimeline } from "./application-timeline";
 import { ApplicationEmails } from "@/components/emails/application-emails";
+import { ApplicationResumes } from "./application-resumes";
 
 const STATUS_OPTIONS: ApplicationStatus[] = [
   "saved",
@@ -415,6 +417,20 @@ export function ApplicationDetail({
               Emails
             </h3>
             <ApplicationEmails applicationId={application.id} />
+          </div>
+
+          <Separator />
+
+          {/* Resume */}
+          <div className="space-y-3">
+            <h3 className="flex items-center gap-1.5 text-sm font-medium">
+              <FileText className="size-3.5" />
+              Resume
+            </h3>
+            <ApplicationResumes
+              applicationId={application.id}
+              jobDescription={jobDescription}
+            />
           </div>
 
           <Separator />

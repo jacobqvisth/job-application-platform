@@ -17,10 +17,17 @@ export async function POST() {
     const synced = await syncEmails(user.id);
     const classified = await classifyEmails(user.id);
 
+    const { data: connection } = await supabase
+      .from("gmail_connections")
+      .select("last_synced_at")
+      .eq("user_id", user.id)
+      .single();
+
     return NextResponse.json({
       success: true,
       synced,
       classified,
+      last_synced_at: connection?.last_synced_at ?? new Date().toISOString(),
     });
   } catch (error) {
     console.error("Sync error:", error);
