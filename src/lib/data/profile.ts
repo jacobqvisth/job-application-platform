@@ -29,6 +29,13 @@ export async function updateUserProfile(
       | "skills"
       | "certifications"
       | "languages"
+      | "phone"
+      | "address_line1"
+      | "city"
+      | "country"
+      | "linkedin_url"
+      | "website_url"
+      | "github_url"
     >
   >
 ): Promise<UserProfileData> {

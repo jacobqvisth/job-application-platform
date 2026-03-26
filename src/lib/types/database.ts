@@ -268,6 +268,14 @@ export interface UserProfileData {
   certifications: CertificationItem[];
   languages: LanguageItem[];
   summary: string | null;
+  // Contact details (added in migration 004 for browser extension autofill)
+  phone: string | null;
+  address_line1: string | null;
+  city: string | null;
+  country: string | null;
+  linkedin_url: string | null;
+  website_url: string | null;
+  github_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -353,3 +361,43 @@ export interface AdzunaJobResult {
   posted_at: string | null;
   match_score: number; // computed server-side before returning
 }
+
+// Browser Extension types (Phase 6)
+
+// Flat profile object returned by /api/extension/profile
+// Contains all the fields the extension needs for autofill
+export interface ExtensionProfile {
+  user_id: string;
+  email: string;
+  full_name: string | null;
+  first_name: string | null;  // derived: first word of full_name
+  last_name: string | null;   // derived: remaining words of full_name
+  phone: string | null;
+  address_line1: string | null;
+  city: string | null;
+  country: string | null;
+  linkedin_url: string | null;
+  website_url: string | null;
+  github_url: string | null;
+  current_title: string | null;   // derived: title from most recent work_history entry
+  current_company: string | null; // derived: company from most recent work_history entry
+  summary: string | null;
+}
+
+export interface FormFieldMapping {
+  id: string;
+  user_id: string;
+  ats_type: 'workday' | 'greenhouse' | 'lever';
+  field_identifier: string;
+  profile_key: string;
+  is_user_corrected: boolean;
+  correction_count: number;
+  last_used_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type UpsertFormFieldMapping = Pick<
+  FormFieldMapping,
+  'ats_type' | 'field_identifier' | 'profile_key' | 'is_user_corrected'
+>;

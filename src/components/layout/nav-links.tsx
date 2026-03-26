@@ -12,6 +12,7 @@ import {
   Settings,
   User,
   PenLine,
+  Puzzle,
 } from "lucide-react";
 
 const links = [
@@ -23,6 +24,7 @@ const links = [
   { href: "/dashboard/profile", label: "Profile", icon: User },
   { href: "/dashboard/jobs", label: "Jobs", icon: Search },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
+  { href: "/dashboard/extension", label: "Extension", icon: Puzzle },
 ];
 
 export function NavLinks({ collapsed }: { collapsed?: boolean }) {

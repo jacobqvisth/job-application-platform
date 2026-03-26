@@ -33,6 +33,7 @@ import type {
   LanguageItem,
   LanguageProficiency,
 } from "@/lib/types/database";
+import { Puzzle } from "lucide-react";
 
 interface ProfileFormProps {
   initialProfile: UserProfileData | null;
@@ -45,6 +46,15 @@ function newId() {
 export function ProfileForm({ initialProfile }: ProfileFormProps) {
   const [isPending, startTransition] = useTransition();
   const [uploading, setUploading] = useState(false);
+
+  // Contact details
+  const [phone, setPhone] = useState(initialProfile?.phone ?? "");
+  const [addressLine1, setAddressLine1] = useState(initialProfile?.address_line1 ?? "");
+  const [city, setCity] = useState(initialProfile?.city ?? "");
+  const [country, setCountry] = useState(initialProfile?.country ?? "United Kingdom");
+  const [linkedinUrl, setLinkedinUrl] = useState(initialProfile?.linkedin_url ?? "");
+  const [websiteUrl, setWebsiteUrl] = useState(initialProfile?.website_url ?? "");
+  const [githubUrl, setGithubUrl] = useState(initialProfile?.github_url ?? "");
 
   const [summary, setSummary] = useState(initialProfile?.summary ?? "");
   const [workHistory, setWorkHistory] = useState<ExperienceItem[]>(
@@ -77,6 +87,13 @@ export function ProfileForm({ initialProfile }: ProfileFormProps) {
         skills,
         certifications,
         languages,
+        phone: phone || null,
+        address_line1: addressLine1 || null,
+        city: city || null,
+        country: country || null,
+        linkedin_url: linkedinUrl || null,
+        website_url: websiteUrl || null,
+        github_url: githubUrl || null,
       });
       if (result.success) {
         toast.success("Profile saved successfully");
@@ -355,6 +372,79 @@ export function ProfileForm({ initialProfile }: ProfileFormProps) {
             placeholder="A brief professional summary (2-3 sentences)..."
             rows={4}
           />
+        </CardContent>
+      </Card>
+
+      {/* Contact Details */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Puzzle className="size-4" />
+            Contact Details
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Used by the browser extension for autofill
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Phone</Label>
+              <Input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+44 7700 900000"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">City</Label>
+              <Input
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                placeholder="London"
+              />
+            </div>
+            <div className="col-span-2 space-y-1">
+              <Label className="text-xs">Address Line 1</Label>
+              <Input
+                value={addressLine1}
+                onChange={(e) => setAddressLine1(e.target.value)}
+                placeholder="123 Example Street"
+              />
+            </div>
+            <div className="col-span-2 space-y-1">
+              <Label className="text-xs">Country</Label>
+              <Input
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                placeholder="United Kingdom"
+              />
+            </div>
+            <div className="col-span-2 space-y-1">
+              <Label className="text-xs">LinkedIn URL</Label>
+              <Input
+                value={linkedinUrl}
+                onChange={(e) => setLinkedinUrl(e.target.value)}
+                placeholder="https://linkedin.com/in/yourprofile"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Website URL</Label>
+              <Input
+                value={websiteUrl}
+                onChange={(e) => setWebsiteUrl(e.target.value)}
+                placeholder="https://yoursite.com"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">GitHub URL</Label>
+              <Input
+                value={githubUrl}
+                onChange={(e) => setGithubUrl(e.target.value)}
+                placeholder="https://github.com/yourusername"
+              />
+            </div>
+          </div>
         </CardContent>
       </Card>
 

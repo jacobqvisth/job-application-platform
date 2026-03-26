@@ -71,4 +71,21 @@ test.describe('API Health Checks', () => {
     const response = await request.get('/api/cron/job-discovery');
     expect([401, 403]).toContain(response.status());
   });
+
+  test('extension profile endpoint requires auth', async ({ request }) => {
+    const response = await request.get('/api/extension/profile');
+    expect(response.status()).toBe(401);
+  });
+
+  test('extension save-job endpoint requires auth', async ({ request }) => {
+    const response = await request.post('/api/extension/save-job', {
+      data: { title: 'Test', company: 'Test Co', url: 'https://example.com' },
+    });
+    expect(response.status()).toBe(401);
+  });
+
+  test('extension field-mappings endpoint requires auth', async ({ request }) => {
+    const response = await request.get('/api/extension/field-mappings?ats_type=greenhouse');
+    expect(response.status()).toBe(401);
+  });
 });

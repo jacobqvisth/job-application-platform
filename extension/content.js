@@ -1,0 +1,440 @@
+(async function () {
+  const url = window.location.href;
+
+  // ─── ATS detection ───────────────────────────────────────────────────────
+  let atsType = null;
+  if (url.includes('greenhouse.io')) atsType = 'greenhouse';
+  else if (url.includes('lever.co')) atsType = 'lever';
+  else if (url.includes('myworkday.com')) atsType = 'workday';
+
+  if (!atsType) return;
+
+  // ─── Application page check ──────────────────────────────────────────────
+  function checkIsApplicationPage(ats, pageUrl) {
+    if (ats === 'greenhouse') {
+      return pageUrl.includes('/app') || pageUrl.includes('/apply');
+    }
+    if (ats === 'lever') {
+      return pageUrl.includes('/apply');
+    }
+    if (ats === 'workday') {
+      return (
+        pageUrl.includes('/apply') ||
+        pageUrl.includes('/job/') ||
+        pageUrl.includes('/wd/')
+      );
+    }
+    return false;
+  }
+
+  if (!checkIsApplicationPage(atsType, url)) return;
+
+  // ─── Inlined mapper logic ─────────────────────────────────────────────────
+
+  // Greenhouse
+  const GREENHOUSE_FIELDS = [
+    { selector: '#first_name',    profileKey: 'first_name' },
+    { selector: '#last_name',     profileKey: 'last_name' },
+    { selector: '#email',         profileKey: 'email' },
+    { selector: '#phone',         profileKey: 'phone' },
+    { selector: '#resume_text',   profileKey: 'summary' },
+    { selector: 'input[name="job_application[linkedin_url]"]', profileKey: 'linkedin_url' },
+    { selector: 'input[name="job_application[website]"]',      profileKey: 'website_url' },
+    { selector: 'input[name="job_application[github]"]',       profileKey: 'github_url' },
+  ];
+
+  function getJobInfoGreenhouse() {
+    const title = document.querySelector('.app-title, h1.job-title, [data-qa="job-title"]')?.textContent?.trim() || '';
+    const company = document.querySelector('.company-name, .employer, [data-qa="company-name"]')?.textContent?.trim() || '';
+    const description = document.querySelector('#content .job-description, .description')?.textContent?.trim() || '';
+    return { title, company, description, url: window.location.href };
+  }
+
+  function detectFieldsGreenhouse(userMappings = []) {
+    return GREENHOUSE_FIELDS.flatMap((fm) => {
+      const override = userMappings.find((m) => m.field_identifier === fm.selector);
+      const profileKey = override ? override.profile_key : fm.profileKey;
+      const el = document.querySelector(fm.selector);
+      if (!el) return [];
+      const label = el.closest('div')?.querySelector('label')?.textContent?.trim() || fm.selector;
+      return [{ element: el, selector: fm.selector, label, profileKey }];
+    });
+  }
+
+  function fillFieldSimple(element, value) {
+    if (!element || value == null) return false;
+    element.focus();
+    element.value = value;
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+    element.dispatchEvent(new Event('change', { bubbles: true }));
+    element.blur();
+    return true;
+  }
+
+  // Lever
+  const LEVER_FIELDS = [
+    { selector: 'input[name="name"]',            profileKey: 'full_name' },
+    { selector: 'input[name="email"]',           profileKey: 'email' },
+    { selector: 'input[name="phone"]',           profileKey: 'phone' },
+    { selector: 'input[name="org"]',             profileKey: 'current_company' },
+    { selector: 'input[name="urls[LinkedIn]"]',  profileKey: 'linkedin_url' },
+    { selector: 'input[name="urls[GitHub]"]',    profileKey: 'github_url' },
+    { selector: 'input[name="urls[Portfolio]"]', profileKey: 'website_url' },
+  ];
+
+  function getJobInfoLever() {
+    const title = document.querySelector('.posting-headline h2, .section-title')?.textContent?.trim() || '';
+    const company =
+      document.querySelector('.main-header-logo img')?.alt ||
+      document.title.split(' at ').pop()?.trim() || '';
+    const description = document.querySelector('.section.page-centered .content')?.textContent?.trim() || '';
+    return { title, company, description, url: window.location.href };
+  }
+
+  function detectFieldsLever(userMappings = []) {
+    return LEVER_FIELDS.flatMap((fm) => {
+      const override = userMappings.find((m) => m.field_identifier === fm.selector);
+      const profileKey = override ? override.profile_key : fm.profileKey;
+      const el = document.querySelector(fm.selector);
+      if (!el) return [];
+      const label =
+        el.closest('.application-field')?.querySelector('label')?.textContent?.trim() || fm.selector;
+      return [{ element: el, selector: fm.selector, label, profileKey }];
+    });
+  }
+
+  // Workday
+  const WORKDAY_FIELDS = [
+    { automationId: 'legalNameSection_firstName',  profileKey: 'first_name' },
+    { automationId: 'legalNameSection_lastName',   profileKey: 'last_name' },
+    { automationId: 'email',                       profileKey: 'email' },
+    { automationId: 'phone-number',                profileKey: 'phone' },
+    { automationId: 'addressSection_addressLine1', profileKey: 'address_line1' },
+    { automationId: 'addressSection_city',         profileKey: 'city' },
+  ];
+
+  function getJobInfoWorkday() {
+    const title =
+      document.querySelector('[data-automation-id="jobPostingHeader"]')?.textContent?.trim() ||
+      document.querySelector('h1')?.textContent?.trim() || '';
+    const company =
+      document.querySelector('[data-automation-id="company-header-logo"]')?.getAttribute('alt') ||
+      document.title.split(' - ').pop()?.trim() || '';
+    const description =
+      document.querySelector('[data-automation-id="job-posting-details"]')?.textContent?.trim() || '';
+    return { title, company, description, url: window.location.href };
+  }
+
+  function fillReactInput(element, value) {
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+    if (setter) setter.call(element, value);
+    else element.value = value;
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+    element.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  function detectFieldsWorkday(userMappings = []) {
+    return WORKDAY_FIELDS.flatMap((fm) => {
+      const selectorId = `[data-automation-id="${fm.automationId}"]`;
+      const override = userMappings.find((m) => m.field_identifier === selectorId);
+      const profileKey = override ? override.profile_key : fm.profileKey;
+      const el = document.querySelector(`${selectorId} input, ${selectorId}`);
+      if (!el || el.tagName !== 'INPUT') return [];
+      const label =
+        document.querySelector(`${selectorId} label`)?.textContent?.trim() || fm.automationId;
+      return [{ element: el, selector: selectorId, label, profileKey }];
+    });
+  }
+
+  function fillFieldWorkday(element, value) {
+    if (!element || value == null) return false;
+    element.focus();
+    fillReactInput(element, value);
+    element.blur();
+    return true;
+  }
+
+  // ─── Unified helpers ──────────────────────────────────────────────────────
+  function getJobInfo() {
+    if (atsType === 'greenhouse') return getJobInfoGreenhouse();
+    if (atsType === 'lever') return getJobInfoLever();
+    if (atsType === 'workday') return getJobInfoWorkday();
+    return { title: '', company: '', description: '', url: window.location.href };
+  }
+
+  function detectFields(userMappings = []) {
+    if (atsType === 'greenhouse') return detectFieldsGreenhouse(userMappings);
+    if (atsType === 'lever') return detectFieldsLever(userMappings);
+    if (atsType === 'workday') return detectFieldsWorkday(userMappings);
+    return [];
+  }
+
+  function fillField(element, value) {
+    if (atsType === 'workday') return fillFieldWorkday(element, value);
+    return fillFieldSimple(element, value);
+  }
+
+  // ─── CSS ──────────────────────────────────────────────────────────────────
+  function getSidebarCSS() {
+    return `
+      .jac-sidebar {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        font-size: 13px;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-right: none;
+        border-radius: 8px 0 0 8px;
+        box-shadow: -2px 4px 16px rgba(0,0,0,0.12);
+        width: 300px;
+        overflow: hidden;
+      }
+      .jac-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 12px;
+        background: #1e40af;
+        color: white;
+      }
+      .jac-title { font-weight: 600; flex: 1; font-size: 13px; }
+      .jac-ats-badge {
+        font-size: 10px;
+        background: rgba(255,255,255,0.2);
+        padding: 2px 6px;
+        border-radius: 10px;
+        text-transform: uppercase;
+      }
+      .jac-close {
+        background: none;
+        border: none;
+        color: white;
+        cursor: pointer;
+        padding: 2px;
+        opacity: 0.7;
+        font-size: 14px;
+        line-height: 1;
+      }
+      .jac-close:hover { opacity: 1; }
+      .jac-body {
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .jac-status { font-size: 12px; color: #64748b; }
+      .jac-btn {
+        width: 100%;
+        padding: 8px 12px;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 500;
+        text-align: left;
+      }
+      .jac-btn-primary { background: #1e40af; color: white; }
+      .jac-btn-primary:hover { background: #1e3a8a; }
+      .jac-btn-secondary {
+        background: #f1f5f9;
+        color: #334155;
+        border: 1px solid #e2e8f0;
+      }
+      .jac-btn-secondary:hover { background: #e2e8f0; }
+      .jac-divider { border: none; border-top: 1px solid #e2e8f0; margin: 4px 0; }
+      .jac-results { font-size: 12px; }
+      .jac-field-row { display: flex; gap: 6px; align-items: center; padding: 2px 0; }
+      .jac-field-ok { color: #16a34a; }
+      .jac-field-skip { color: #94a3b8; }
+      .jac-field-manual { color: #d97706; }
+      .jac-link {
+        display: block;
+        margin-top: 4px;
+        font-size: 11px;
+        color: #1e40af;
+        text-decoration: underline;
+        cursor: pointer;
+      }
+    `;
+  }
+
+  // ─── Sidebar HTML ─────────────────────────────────────────────────────────
+  function getSidebarHTML() {
+    return `
+      <div class="jac-header">
+        <span>💼</span>
+        <span class="jac-title">Job Copilot</span>
+        <span class="jac-ats-badge">${atsType}</span>
+        <button class="jac-close" id="jac-close-btn" title="Close">✕</button>
+      </div>
+      <div class="jac-body">
+        <div class="jac-status" id="jac-status">Ready</div>
+
+        <button class="jac-btn jac-btn-primary" id="jac-fill-btn">
+          Fill from Profile
+        </button>
+
+        <div class="jac-results" id="jac-results" style="display:none"></div>
+
+        <hr class="jac-divider">
+
+        <button class="jac-btn jac-btn-secondary" id="jac-capture-btn">
+          📋 Open Draft Wizard
+        </button>
+
+        <button class="jac-btn jac-btn-secondary" id="jac-save-btn">
+          💾 Save to Tracker
+        </button>
+      </div>
+    `;
+  }
+
+  // ─── Inject sidebar ───────────────────────────────────────────────────────
+  const host = document.createElement('div');
+  host.id = 'jac-ext-root';
+  host.style.cssText = 'position:fixed;top:80px;right:0;z-index:2147483647;width:320px;';
+  document.body.appendChild(host);
+
+  const shadow = host.attachShadow({ mode: 'open' });
+
+  const style = document.createElement('style');
+  style.textContent = getSidebarCSS();
+
+  const container = document.createElement('div');
+  container.className = 'jac-sidebar';
+  container.innerHTML = getSidebarHTML();
+
+  shadow.appendChild(style);
+  shadow.appendChild(container);
+
+  // ─── Button handlers ──────────────────────────────────────────────────────
+  const statusEl = shadow.getElementById('jac-status');
+  const resultsEl = shadow.getElementById('jac-results');
+  const fillBtn = shadow.getElementById('jac-fill-btn');
+  const captureBtn = shadow.getElementById('jac-capture-btn');
+  const saveBtn = shadow.getElementById('jac-save-btn');
+  const closeBtn = shadow.getElementById('jac-close-btn');
+
+  closeBtn.addEventListener('click', () => {
+    host.style.display = 'none';
+  });
+
+  fillBtn.addEventListener('click', async () => {
+    statusEl.textContent = 'Loading profile...';
+    fillBtn.disabled = true;
+
+    chrome.runtime.sendMessage({ type: 'GET_PROFILE' }, async (response) => {
+      fillBtn.disabled = false;
+
+      if (!response?.success) {
+        const msg = response?.error === 'NOT_AUTHENTICATED'
+          ? 'Not connected — visit the app to sync'
+          : (response?.error || 'Failed to load profile');
+        statusEl.textContent = msg;
+        return;
+      }
+
+      const profile = response.profile;
+
+      // Get user-corrected mappings
+      let userMappings = [];
+      try {
+        const mappingsResp = await new Promise((resolve) => {
+          chrome.runtime.sendMessage({ type: 'GET_FIELD_MAPPINGS', atsType }, resolve);
+        });
+        userMappings = mappingsResp?.mappings || [];
+      } catch {
+        // Non-critical
+      }
+
+      const fields = detectFields(userMappings);
+      if (fields.length === 0) {
+        statusEl.textContent = 'No fillable fields detected on this page';
+        return;
+      }
+
+      const rows = [];
+      let filledCount = 0;
+
+      for (const field of fields) {
+        const value = profile[field.profileKey];
+
+        // Detect file upload fields — can't fill these
+        if (field.element.type === 'file') {
+          rows.push(`<div class="jac-field-row"><span class="jac-field-manual">—</span><span>${field.label} (manual: file upload)</span></div>`);
+          continue;
+        }
+
+        if (value != null && value !== '') {
+          const filled = fillField(field.element, String(value));
+          if (filled) {
+            filledCount++;
+            rows.push(`<div class="jac-field-row"><span class="jac-field-ok">✓</span><span>${field.label}</span></div>`);
+          } else {
+            rows.push(`<div class="jac-field-row"><span class="jac-field-skip">—</span><span>${field.label} (could not fill)</span></div>`);
+          }
+        } else {
+          rows.push(`<div class="jac-field-row"><span class="jac-field-skip">—</span><span>${field.label} (no data)</span></div>`);
+        }
+      }
+
+      statusEl.textContent = `Filled ${filledCount} of ${fields.length} fields`;
+      resultsEl.innerHTML = rows.join('');
+      resultsEl.style.display = 'block';
+    });
+  });
+
+  captureBtn.addEventListener('click', () => {
+    const { title, company, description } = getJobInfo();
+    const params = new URLSearchParams({
+      company: company || '',
+      role: title || '',
+      jobDescription: description.slice(0, 6000),
+    });
+    chrome.runtime.sendMessage({
+      type: 'OPEN_TAB',
+      url: `https://job-application-platform-lake.vercel.app/dashboard/draft?${params}`,
+    });
+  });
+
+  saveBtn.addEventListener('click', () => {
+    const { title, company, description } = getJobInfo();
+    saveBtn.disabled = true;
+    saveBtn.textContent = '⏳ Saving...';
+
+    chrome.runtime.sendMessage(
+      {
+        type: 'SAVE_JOB',
+        job: { title, company, url: window.location.href, description, ats_type: atsType },
+      },
+      (response) => {
+        saveBtn.disabled = false;
+        if (response?.success) {
+          saveBtn.textContent = response.alreadySaved ? '✓ Already saved' : '✓ Saved to Tracker';
+          if (!response.alreadySaved) {
+            resultsEl.innerHTML +=
+              `<a class="jac-link" href="https://job-application-platform-lake.vercel.app/dashboard/applications" target="_blank">View in Tracker →</a>`;
+            resultsEl.style.display = 'block';
+          }
+        } else {
+          saveBtn.textContent = '✗ Error — not connected?';
+        }
+      }
+    );
+  });
+
+  // ─── SPA navigation watcher ───────────────────────────────────────────────
+  // Re-inject sidebar if the URL changes (Workday/Greenhouse SPA routing)
+  let lastUrl = window.location.href;
+  const navObserver = new MutationObserver(() => {
+    if (window.location.href !== lastUrl) {
+      lastUrl = window.location.href;
+      if (checkIsApplicationPage(atsType, lastUrl)) {
+        if (!document.getElementById('jac-ext-root')) {
+          document.body.appendChild(host);
+        }
+        host.style.display = '';
+      }
+    }
+  });
+  navObserver.observe(document.body, { childList: true, subtree: true });
+})();

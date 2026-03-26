@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="popup.css" />
+    <title>Job Application Copilot</title>
+  </head>
+  <body>
+    <div class="popup">
+      <div class="header">
+        <span class="logo">💼</span>
+        <span class="title">Job Copilot</span>
+      </div>
+
+      <div id="auth-status" class="status-row">
+        <span class="dot" id="auth-dot"></span>
+        <span id="auth-label">Checking...</span>
+      </div>
+
+      <div id="not-connected" class="section" style="display: none">
+        <p class="hint">Visit the app to connect the extension.</p>
+        <button id="open-extension-page" class="btn btn-primary">Open App →</button>
+      </div>
+
+      <div id="connected-actions" class="section" style="display: none">
+        <button id="open-app" class="btn btn-secondary">Open App ↗</button>
+        <button id="sign-out" class="btn btn-ghost">Disconnect</button>
+      </div>
+
+      <div class="footer">
+        <span id="current-page-info">No ATS detected on this page</span>
+      </div>
+    </div>
+    <script src="popup.js"></script>
+  </body>
+</html>

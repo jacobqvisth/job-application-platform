@@ -15,6 +15,13 @@ export async function saveProfileAction(
       | "skills"
       | "certifications"
       | "languages"
+      | "phone"
+      | "address_line1"
+      | "city"
+      | "country"
+      | "linkedin_url"
+      | "website_url"
+      | "github_url"
     >
   >
 ) {

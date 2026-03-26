@@ -1,0 +1,54 @@
+{
+  "manifest_version": 3,
+  "name": "Job Application Copilot",
+  "version": "1.0.0",
+  "description": "Autofill job applications from your profile. Personal tool for Jacob.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "tabs"
+  ],
+  "host_permissions": [
+    "*://*.myworkday.com/*",
+    "*://*.greenhouse.io/*",
+    "*://*.lever.co/*",
+    "*://*.linkedin.com/*",
+    "*://job-application-platform-lake.vercel.app/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Job Application Copilot"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.myworkday.com/*",
+        "*://*.greenhouse.io/*",
+        "*://*.lever.co/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["*://*.linkedin.com/jobs/*"],
+      "js": ["content-linkedin.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["*://job-application-platform-lake.vercel.app/*"],
+      "js": ["content-app.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
