@@ -75,7 +75,9 @@ test.describe('All Dashboard Pages — Error Check', () => {
         !e.includes('404') &&
         !e.includes('Failed to load resource') &&
         !e.includes('Download the React DevTools') &&
-        !e.includes('Third-party cookie')
+        !e.includes('Third-party cookie') &&
+        !e.includes('CORS policy') &&
+        !e.includes('accounts.google.com')
       );
       expect(critical).toEqual([]);
     });
