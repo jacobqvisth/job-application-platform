@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
-// Test-only endpoint — blocked in production
+// Test-only endpoint — requires E2E_SECRET to prevent unauthorized use
 export async function POST(request: NextRequest) {
-  if (process.env.NODE_ENV === "production") {
+  const body = await request.json();
+  const { email, password, secret } = body;
+
+  // Must provide the correct secret (set as env var on Vercel and in .env.local)
+  if (!process.env.E2E_SECRET || secret !== process.env.E2E_SECRET) {
     return NextResponse.json({ error: "Not available" }, { status: 403 });
   }
-
-  const { email, password } = await request.json();
 
   const response = NextResponse.json({ ok: true });
 
