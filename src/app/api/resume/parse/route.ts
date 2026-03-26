@@ -117,9 +117,11 @@ ${extractedText.slice(0, 8000)}`,
     return NextResponse.json({ success: true, profile });
   } catch (error) {
     console.error("Resume parse error:", error);
+    const message = (error as Error).message || "Failed to parse resume";
+    // Return 400 for parsing/input errors, not 500
     return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 500 }
+      { error: message },
+      { status: 400 }
     );
   }
 }
