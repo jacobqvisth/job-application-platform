@@ -9,7 +9,16 @@ export async function POST(request: NextRequest) {
   // Must provide the correct secret — reuses CRON_SECRET which is already on Vercel
   const expectedSecret = process.env.E2E_SECRET || process.env.CRON_SECRET;
   if (!expectedSecret || secret !== expectedSecret) {
-    return NextResponse.json({ error: "Not available" }, { status: 403 });
+    return NextResponse.json({
+      error: "Not available",
+      debug: {
+        hasExpected: !!expectedSecret,
+        hasProvided: !!secret,
+        expectedLen: expectedSecret?.length,
+        providedLen: secret?.length,
+        match: secret === expectedSecret,
+      }
+    }, { status: 403 });
   }
 
   const response = NextResponse.json({ ok: true });
