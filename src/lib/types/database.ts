@@ -288,6 +288,21 @@ export type UpdateResumeData = Partial<
   Pick<Resume, "name" | "content" | "is_base" | "tailored_for_application_id">
 >;
 
+export type AnswerCategory =
+  | "behavioral"
+  | "technical"
+  | "motivational"
+  | "situational"
+  | "salary"
+  | "availability"
+  | "why_us"
+  | "why_role"
+  | "other";
+
+export type AnswerRating = "strong" | "good" | "needs_work" | "untested";
+
+export type AnswerTone = "formal" | "conversational" | "concise" | "detailed" | "neutral";
+
 export interface ScreeningAnswer {
   id: string;
   user_id: string;
@@ -296,6 +311,10 @@ export interface ScreeningAnswer {
   answer: string;
   status: "draft" | "approved";
   tags: string[];
+  canonical_question_id: string | null;
+  rating: AnswerRating;
+  tone: AnswerTone;
+  usage_count: number;
   created_at: string;
   updated_at: string;
 }
@@ -304,6 +323,28 @@ export type CreateScreeningAnswerData = Pick<
   ScreeningAnswer,
   "question" | "answer" | "status" | "tags"
 > & { application_id?: string | null };
+
+export interface CanonicalQuestion {
+  id: string;
+  user_id: string;
+  canonical_text: string;
+  category: AnswerCategory;
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CanonicalQuestionWithAnswers extends CanonicalQuestion {
+  screening_answers: ScreeningAnswer[];
+}
+
+export interface LibraryOverview {
+  totalQuestions: number;
+  totalAnswers: number;
+  byCategory: Record<string, number>;
+  strongAnswers: number;
+  needsWorkAnswers: number;
+}
 
 // Job Discovery types
 

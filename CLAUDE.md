@@ -45,6 +45,7 @@ src/
 ├── app/           # Next.js App Router pages and layouts
 │   ├── (auth)/    # Login page
 │   ├── (protected)/dashboard/  # All dashboard pages
+│   │   └── answers/            # Answer Library page + server actions
 │   ├── api/       # API routes (gmail, resume, cron, e2e-login)
 │   └── auth/      # OAuth callback
 ├── components/    # React components (ui/ for shadcn, feature folders)
@@ -104,7 +105,7 @@ All 26 tests should pass. If any fail, fix before moving on.
 - Deploy with `vercel --prod --yes` (GitHub auto-deploy is disconnected)
 - Run E2E tests after deploy to verify
 
-## Current State (Phase 3 + QA complete)
+## Current State (Phase 7a complete)
 - Auth: Google OAuth via Supabase ✓
 - Dashboard: Sidebar navigation, all pages render ✓
 - Applications: Kanban board with drag-and-drop ✓
@@ -113,6 +114,7 @@ All 26 tests should pass. If any fail, fix before moving on.
 - Resumes: List, editor, 3 templates (Clean/Modern/Compact), AI tailoring, PDF/DOCX export ✓
 - Email sync: Vercel Cron every 5 minutes, keyword pre-filter + Claude classification ✓
 - E2E Tests: 26 Playwright tests covering smoke, dashboard, profile, resumes, applications, API ✓
+- Answer Library: /dashboard/answers — canonical questions, answer variants, rating/tone, orphan linking, auto-categorize ✓
 
 ## Database Tables
 - `profiles` — user profiles
@@ -122,3 +124,5 @@ All 26 tests should pass. If any fail, fix before moving on.
 - `emails` — synced emails with classification
 - `user_profile_data` — resume source data (work history, education, skills, etc.)
 - `resumes` — saved resumes (JSONB content, template selection)
+- `canonical_questions` — library of canonical screening questions (category, tags)
+- `screening_answers` — answer variants linked to canonical questions (rating, tone, usage_count)

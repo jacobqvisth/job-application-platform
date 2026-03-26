@@ -13,11 +13,13 @@ import {
   User,
   PenLine,
   Puzzle,
+  BookOpen,
 } from "lucide-react";
 
 const links = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/dashboard/draft", label: "Draft Application", icon: PenLine },
+  { href: "/dashboard/answers", label: "Answer Library", icon: BookOpen },
   { href: "/dashboard/applications", label: "Applications", icon: Kanban },
   { href: "/dashboard/resumes", label: "Resumes", icon: FileText },
   { href: "/dashboard/emails", label: "Emails", icon: Mail },
