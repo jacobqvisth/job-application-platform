@@ -55,11 +55,19 @@ interface DraftResult {
 
 interface DraftWizardProps {
   resumes: Resume[];
+  initialJobDescription?: string;
+  initialCompany?: string;
+  initialRole?: string;
 }
 
-export function DraftWizard({ resumes }: DraftWizardProps) {
+export function DraftWizard({
+  resumes,
+  initialJobDescription,
+  initialCompany,
+  initialRole,
+}: DraftWizardProps) {
   // Input state
-  const [jobDescription, setJobDescription] = useState("");
+  const [jobDescription, setJobDescription] = useState(initialJobDescription ?? "");
   const [tone, setTone] = useState<string>("formal");
   const [resumeId, setResumeId] = useState<string>("");
   const [generating, setGenerating] = useState(false);
@@ -242,6 +250,12 @@ export function DraftWizard({ resumes }: DraftWizardProps) {
               )}
             </div>
           </div>
+
+          {initialJobDescription && (
+            <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200">
+              Pre-filled from job listing — review and generate your package.
+            </div>
+          )}
 
           <Button
             onClick={handleGenerate}

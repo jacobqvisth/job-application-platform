@@ -49,4 +49,26 @@ test.describe('API Health Checks', () => {
     });
     expect(response.status()).toBe(401);
   });
+
+  test('jobs search endpoint requires auth', async ({ request }) => {
+    const response = await request.get('/api/jobs/search?q=engineer');
+    expect(response.status()).toBe(401);
+  });
+
+  test('jobs save endpoint requires auth', async ({ request }) => {
+    const response = await request.post('/api/jobs/save', {
+      data: { title: 'Engineer', company: 'ACME', url: 'https://example.com' },
+    });
+    expect(response.status()).toBe(401);
+  });
+
+  test('saved searches endpoint requires auth', async ({ request }) => {
+    const response = await request.get('/api/jobs/saved-searches');
+    expect(response.status()).toBe(401);
+  });
+
+  test('job discovery cron requires secret', async ({ request }) => {
+    const response = await request.get('/api/cron/job-discovery');
+    expect([401, 403]).toContain(response.status());
+  });
 });

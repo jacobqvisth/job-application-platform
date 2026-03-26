@@ -296,3 +296,60 @@ export type CreateScreeningAnswerData = Pick<
   ScreeningAnswer,
   "question" | "answer" | "status" | "tags"
 > & { application_id?: string | null };
+
+// Job Discovery types
+
+export interface SavedSearch {
+  id: string;
+  user_id: string;
+  name: string;
+  query: string;
+  location: string | null;
+  remote_only: boolean;
+  salary_min: number | null;
+  country: string;
+  is_active: boolean;
+  last_run_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type CreateSavedSearchData = Pick<
+  SavedSearch,
+  'name' | 'query' | 'location' | 'remote_only' | 'salary_min' | 'country' | 'is_active'
+>;
+
+export interface JobListing {
+  id: string;
+  user_id: string;
+  saved_search_id: string | null;
+  external_id: string;
+  source: 'adzuna';
+  title: string;
+  company: string;
+  location: string | null;
+  description: string | null;
+  url: string;
+  salary_min: number | null;
+  salary_max: number | null;
+  remote_type: 'remote' | 'hybrid' | 'onsite' | 'unknown' | null;
+  posted_at: string | null;
+  match_score: number;
+  is_saved: boolean;
+  created_at: string;
+}
+
+// Used for live search results (not persisted — returned from Adzuna API)
+export interface AdzunaJobResult {
+  external_id: string;
+  title: string;
+  company: string;
+  location: string | null;
+  description: string;
+  url: string;
+  salary_min: number | null;
+  salary_max: number | null;
+  remote_type: 'remote' | 'hybrid' | 'onsite' | 'unknown';
+  posted_at: string | null;
+  match_score: number; // computed server-side before returning
+}
