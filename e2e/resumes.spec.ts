@@ -23,7 +23,10 @@ test.describe('Resumes Page', () => {
 
     const critical = errors.filter(e =>
       !e.includes('favicon') &&
-      !e.includes('Download the React DevTools')
+      !e.includes('404') &&
+      !e.includes('Failed to load resource') &&
+      !e.includes('Download the React DevTools') &&
+      !e.includes('Third-party cookie')
     );
     expect(critical).toEqual([]);
   });

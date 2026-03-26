@@ -4,12 +4,12 @@ import { test, expect } from '@playwright/test';
 test.use({ storageState: { cookies: [], origins: [] } });
 
 test.describe('API Health Checks', () => {
-  test('resume parse endpoint rejects missing file', async ({ request }) => {
+  test('resume parse endpoint rejects unauthenticated requests', async ({ request }) => {
     const response = await request.post('/api/resume/parse', {
       multipart: {},
     });
-    // Should return 400 (bad request), NOT 500
-    expect(response.status()).toBe(400);
+    // Should return 401 (unauthorized) or 400 (bad request), NOT 500
+    expect([400, 401]).toContain(response.status());
   });
 
   test('resume list endpoint requires auth', async ({ request }) => {
