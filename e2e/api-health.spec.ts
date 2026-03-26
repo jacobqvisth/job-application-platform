@@ -28,4 +28,25 @@ test.describe('API Health Checks', () => {
     // Should reject without CRON_SECRET
     expect([401, 403, 405]).toContain(response.status());
   });
+
+  test('application draft endpoint requires auth', async ({ request }) => {
+    const response = await request.post('/api/application/draft', {
+      data: { jobDescription: 'Test' },
+    });
+    expect(response.status()).toBe(401);
+  });
+
+  test('application save-draft endpoint requires auth', async ({ request }) => {
+    const response = await request.post('/api/application/save-draft', {
+      data: { company: 'Test', role: 'Test', jobDescription: 'Test', coverLetter: '', screeningAnswers: [] },
+    });
+    expect(response.status()).toBe(401);
+  });
+
+  test('application improve endpoint requires auth', async ({ request }) => {
+    const response = await request.post('/api/application/improve', {
+      data: { type: 'cover_letter', content: 'Test', instruction: 'shorter', jobDescription: 'Test' },
+    });
+    expect(response.status()).toBe(401);
+  });
 });

@@ -11,10 +11,12 @@ import {
   Search,
   Settings,
   User,
+  PenLine,
 } from "lucide-react";
 
 const links = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard/draft", label: "Draft Application", icon: PenLine },
   { href: "/dashboard/applications", label: "Applications", icon: Kanban },
   { href: "/dashboard/resumes", label: "Resumes", icon: FileText },
   { href: "/dashboard/emails", label: "Emails", icon: Mail },

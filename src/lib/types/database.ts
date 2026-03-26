@@ -279,3 +279,20 @@ export type CreateResumeData = Pick<Resume, "name" | "content" | "is_base"> & {
 export type UpdateResumeData = Partial<
   Pick<Resume, "name" | "content" | "is_base" | "tailored_for_application_id">
 >;
+
+export interface ScreeningAnswer {
+  id: string;
+  user_id: string;
+  application_id: string | null;
+  question: string;
+  answer: string;
+  status: "draft" | "approved";
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export type CreateScreeningAnswerData = Pick<
+  ScreeningAnswer,
+  "question" | "answer" | "status" | "tags"
+> & { application_id?: string | null };
