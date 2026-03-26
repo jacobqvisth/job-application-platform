@@ -6,8 +6,9 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const { email, password, secret } = body;
 
-  // Must provide the correct secret (set as env var on Vercel and in .env.local)
-  if (!process.env.E2E_SECRET || secret !== process.env.E2E_SECRET) {
+  // Must provide the correct secret — reuses CRON_SECRET which is already on Vercel
+  const expectedSecret = process.env.E2E_SECRET || process.env.CRON_SECRET;
+  if (!expectedSecret || secret !== expectedSecret) {
     return NextResponse.json({ error: "Not available" }, { status: 403 });
   }
 

@@ -31,7 +31,7 @@ setup('authenticate', async ({ page, baseURL }) => {
 
   // Sign in via the test-only endpoint — it sets SSR auth cookies on the response
   const response = await page.request.post('/api/e2e-login', {
-    data: { email: testEmail, password: TEST_PASSWORD, secret: process.env.E2E_SECRET },
+    data: { email: testEmail, password: TEST_PASSWORD, secret: process.env.E2E_SECRET || process.env.CRON_SECRET },
   });
 
   if (!response.ok()) {
