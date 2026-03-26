@@ -3,7 +3,6 @@ import { test, expect } from '@playwright/test';
 test.describe('Job Discovery', () => {
   // Authenticated tests — uses the saved auth state
   test.describe('Authenticated', () => {
-    test.use({ storageState: 'playwright/.auth/user.json' });
 
     test('jobs page loads and shows search form', async ({ page }) => {
       await page.goto('/dashboard/jobs');
