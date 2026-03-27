@@ -96,7 +96,7 @@ export function PipelineTable({ applications }: PipelineTableProps) {
                     </td>
                     <td className="px-4 py-3">
                       <Link
-                        href="/dashboard/applications"
+                        href={`/dashboard/applications/${app.id}`}
                         className="text-xs font-medium text-primary hover:underline"
                       >
                         View

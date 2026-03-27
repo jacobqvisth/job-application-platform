@@ -1,4 +1,5 @@
 import { SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/server";
 import {
   Application,
   ApplicationWithEvents,
@@ -205,6 +206,29 @@ export async function getApplicationStats(
         ? Math.round((respondedCount / appliedCount) * 100)
         : null,
   };
+}
+
+export async function getApplicationById(
+  id: string,
+  userId: string
+): Promise<ApplicationWithEvents | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("applications")
+    .select("*, application_events(*)")
+    .eq("id", id)
+    .eq("user_id", userId)
+    .order("created_at", {
+      referencedTable: "application_events",
+      ascending: true,
+    })
+    .single();
+
+  if (error) {
+    if (error.code === "PGRST116") return null;
+    throw error;
+  }
+  return data;
 }
 
 export async function getRecentEvents(

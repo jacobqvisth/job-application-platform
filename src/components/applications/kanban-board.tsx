@@ -19,6 +19,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
+import Link from "next/link";
 import type { Application, ApplicationStatus } from "@/lib/types/database";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +30,7 @@ import {
   MapPin,
   Calendar,
   GripVertical,
+  ExternalLink,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -200,6 +202,17 @@ function ApplicationCard({
                 {formattedDate}
               </span>
             )}
+          </div>
+
+          <div className="flex justify-end pt-1">
+            <Link
+              href={`/dashboard/applications/${application.id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center gap-1 text-[10px] text-primary opacity-0 group-hover:opacity-100 transition-opacity hover:underline"
+            >
+              <ExternalLink className="h-2.5 w-2.5" />
+              Details
+            </Link>
           </div>
         </div>
       </div>
