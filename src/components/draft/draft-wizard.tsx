@@ -1,7 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { ArrowLeft, Loader2, Copy, Check, Sparkles, BookOpen } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import {
+  ArrowLeft,
+  Loader2,
+  Copy,
+  Check,
+  Sparkles,
+  BookOpen,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -17,7 +24,9 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { ImproveDialog } from "./improve-dialog";
 import { SaveDialog } from "./save-dialog";
+import { CategoryBadge } from "@/components/answers/category-badge";
 import Link from "next/link";
+import type { AnswerCategory } from "@/lib/types/database";
 
 interface Resume {
   id: string;
@@ -28,6 +37,21 @@ interface ScreeningQuestion {
   question: string;
   answer: string;
   tags: string[];
+  pinned?: boolean;
+}
+
+interface LibraryMatch {
+  predicted_question: string;
+  category: string;
+  canonical_question_id: string | null;
+  canonical_text: string | null;
+  best_answer: {
+    id: string;
+    answer_text: string;
+    rating: string;
+    tone: string;
+    usage_count: number;
+  } | null;
 }
 
 interface DraftResult {
@@ -60,6 +84,19 @@ interface DraftWizardProps {
   initialRole?: string;
 }
 
+function ratingDotColor(rating: string): string {
+  switch (rating) {
+    case "strong":
+      return "bg-green-500";
+    case "good":
+      return "bg-blue-500";
+    case "needs_work":
+      return "bg-yellow-500";
+    default:
+      return "bg-zinc-400";
+  }
+}
+
 export function DraftWizard({
   resumes,
   initialJobDescription,
@@ -67,15 +104,30 @@ export function DraftWizard({
   initialRole,
 }: DraftWizardProps) {
   // Input state
-  const [jobDescription, setJobDescription] = useState(initialJobDescription ?? "");
+  const [jobDescription, setJobDescription] = useState(
+    initialJobDescription ?? ""
+  );
   const [tone, setTone] = useState<string>("formal");
   const [resumeId, setResumeId] = useState<string>("");
   const [generating, setGenerating] = useState(false);
 
+  // Library match state
+  const [libraryMatches, setLibraryMatches] = useState<LibraryMatch[]>([]);
+  const [pinnedAnswers, setPinnedAnswers] = useState<Record<string, string>>(
+    {}
+  );
+  const [loadingMatches, setLoadingMatches] = useState(false);
+  const [dismissedCategories, setDismissedCategories] = useState<Set<string>>(
+    new Set()
+  );
+  const matchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Result state
   const [result, setResult] = useState<DraftResult | null>(null);
   const [coverLetter, setCoverLetter] = useState("");
-  const [screeningAnswers, setScreeningAnswers] = useState<ScreeningQuestion[]>([]);
+  const [screeningAnswers, setScreeningAnswers] = useState<ScreeningQuestion[]>(
+    []
+  );
 
   // UI state
   const [copiedCover, setCopiedCover] = useState(false);
@@ -86,6 +138,60 @@ export function DraftWizard({
   } | null>(null);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [regeneratingTone, setRegeneratingTone] = useState<string>(tone);
+
+  // Debounced library match fetch
+  useEffect(() => {
+    if (matchDebounceRef.current) clearTimeout(matchDebounceRef.current);
+
+    if (jobDescription.length < 200) {
+      setLibraryMatches([]);
+      return;
+    }
+
+    matchDebounceRef.current = setTimeout(async () => {
+      setLoadingMatches(true);
+      try {
+        const res = await fetch("/api/answers/match", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jobDescription }),
+        });
+        if (res.ok) {
+          const data = (await res.json()) as { matches: LibraryMatch[] };
+          setLibraryMatches(data.matches ?? []);
+          setDismissedCategories(new Set());
+        }
+      } catch {
+        // Silently fail — library suggestions are non-critical
+      } finally {
+        setLoadingMatches(false);
+      }
+    }, 1500);
+
+    return () => {
+      if (matchDebounceRef.current) clearTimeout(matchDebounceRef.current);
+    };
+  }, [jobDescription]);
+
+  function pinAnswer(predictedQuestion: string, answerText: string) {
+    setPinnedAnswers((prev) => ({ ...prev, [predictedQuestion]: answerText }));
+  }
+
+  function unpinAnswer(predictedQuestion: string) {
+    setPinnedAnswers((prev) => {
+      const next = { ...prev };
+      delete next[predictedQuestion];
+      return next;
+    });
+  }
+
+  function skipMatch(category: string) {
+    setDismissedCategories((prev) => new Set([...prev, category]));
+  }
+
+  const visibleMatches = libraryMatches.filter(
+    (m) => m.best_answer !== null && !dismissedCategories.has(m.category)
+  );
 
   async function handleGenerate() {
     if (!jobDescription.trim()) return;
@@ -98,6 +204,7 @@ export function DraftWizard({
           jobDescription,
           tone,
           resumeId: resumeId || undefined,
+          pinnedAnswers,
         }),
       });
       const data = await res.json();
@@ -135,7 +242,11 @@ export function DraftWizard({
       }
       setCoverLetter(data.cover_letter);
       if (result) {
-        setResult({ ...result, cover_letter: data.cover_letter, tone: regeneratingTone });
+        setResult({
+          ...result,
+          cover_letter: data.cover_letter,
+          tone: regeneratingTone,
+        });
       }
     } catch {
       toast.error("Something went wrong. Please try again.");
@@ -150,7 +261,10 @@ export function DraftWizard({
     setTimeout(() => setCopiedCover(false), 2000);
   }
 
-  function openImprove(type: "cover_letter" | "screening_answer", index?: number) {
+  function openImprove(
+    type: "cover_letter" | "screening_answer",
+    index?: number
+  ) {
     setImproveTarget({ type, index });
     setImproveDialogOpen(true);
   }
@@ -159,7 +273,10 @@ export function DraftWizard({
     if (!improveTarget) return;
     if (improveTarget.type === "cover_letter") {
       setCoverLetter(improved);
-    } else if (improveTarget.type === "screening_answer" && improveTarget.index !== undefined) {
+    } else if (
+      improveTarget.type === "screening_answer" &&
+      improveTarget.index !== undefined
+    ) {
       setScreeningAnswers((prev) =>
         prev.map((q, i) =>
           i === improveTarget.index ? { ...q, answer: improved } : q
@@ -174,6 +291,9 @@ export function DraftWizard({
     setCoverLetter("");
     setScreeningAnswers([]);
     setJobDescription("");
+    setLibraryMatches([]);
+    setPinnedAnswers({});
+    setDismissedCategories(new Set());
   }
 
   const matchColor =
@@ -188,7 +308,9 @@ export function DraftWizard({
     return (
       <div className="mx-auto max-w-2xl">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold tracking-tight">Draft Application</h1>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Draft Application
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Paste a job description → get your full application package
           </p>
@@ -201,14 +323,113 @@ export function DraftWizard({
               id="job-description"
               placeholder="Paste the full job description here..."
               value={jobDescription}
-              onChange={(e) => setJobDescription(e.target.value.slice(0, 10000))}
+              onChange={(e) =>
+                setJobDescription(e.target.value.slice(0, 10000))
+              }
               rows={12}
               className="resize-none"
             />
-            <p className="text-xs text-muted-foreground text-right">
-              {jobDescription.length.toLocaleString()} / 10,000 characters
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                {loadingMatches && (
+                  <span className="inline-flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Checking your library...
+                  </span>
+                )}
+              </p>
+              <p className="text-xs text-muted-foreground text-right">
+                {jobDescription.length.toLocaleString()} / 10,000 characters
+              </p>
+            </div>
           </div>
+
+          {/* Library Suggestions Panel */}
+          {visibleMatches.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <BookOpen className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium text-muted-foreground">
+                  From your Answer Library
+                </span>
+              </div>
+              {visibleMatches.map((match) => {
+                const isPinned = match.predicted_question in pinnedAnswers;
+                return (
+                  <div
+                    key={match.category}
+                    className="rounded-lg border bg-muted/30 p-3 space-y-2"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <CategoryBadge
+                        category={match.category as AnswerCategory}
+                      />
+                      <span className="text-xs text-muted-foreground">
+                        {match.predicted_question}
+                      </span>
+                    </div>
+                    {match.canonical_text &&
+                      match.canonical_text !== match.predicted_question && (
+                        <p className="text-xs font-medium">
+                          {match.canonical_text}
+                        </p>
+                      )}
+                    <p className="text-xs text-muted-foreground">
+                      {match.best_answer!.answer_text.slice(0, 120)}
+                      {match.best_answer!.answer_text.length > 120
+                        ? "..."
+                        : ""}
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={`h-2 w-2 rounded-full ${ratingDotColor(match.best_answer!.rating)}`}
+                        />
+                        <span className="text-xs text-muted-foreground capitalize">
+                          {match.best_answer!.rating}
+                        </span>
+                      </div>
+                      {isPinned ? (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-xs gap-1.5 text-green-700 hover:text-green-800"
+                          onClick={() => unpinAnswer(match.predicted_question)}
+                        >
+                          <Check className="h-3 w-3" />
+                          Pinned — click to unpin
+                        </Button>
+                      ) : (
+                        <div className="flex gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 text-xs text-muted-foreground"
+                            onClick={() => skipMatch(match.category)}
+                          >
+                            Skip
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            onClick={() =>
+                              pinAnswer(
+                                match.predicted_question,
+                                match.best_answer!.answer_text
+                              )
+                            }
+                          >
+                            Use this
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -285,11 +506,12 @@ export function DraftWizard({
     improveTarget?.type === "cover_letter"
       ? coverLetter
       : improveTarget?.index !== undefined
-      ? screeningAnswers[improveTarget.index]?.answer ?? ""
+      ? (screeningAnswers[improveTarget.index]?.answer ?? "")
       : "";
 
   const currentImproveQuestion =
-    improveTarget?.type === "screening_answer" && improveTarget.index !== undefined
+    improveTarget?.type === "screening_answer" &&
+    improveTarget.index !== undefined
       ? screeningAnswers[improveTarget.index]?.question
       : undefined;
 
@@ -323,7 +545,9 @@ export function DraftWizard({
       {/* Key Requirements */}
       {result.key_requirements.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium text-muted-foreground">Key requirements:</span>
+          <span className="text-xs font-medium text-muted-foreground">
+            Key requirements:
+          </span>
           {result.key_requirements.map((req, i) => (
             <Badge key={i} variant="secondary" className="text-xs">
               {req}
@@ -346,7 +570,10 @@ export function DraftWizard({
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2">
                 <Label className="shrink-0">Tone:</Label>
-                <Select value={regeneratingTone} onValueChange={setRegeneratingTone}>
+                <Select
+                  value={regeneratingTone}
+                  onValueChange={setRegeneratingTone}
+                >
                   <SelectTrigger className="w-40 h-8">
                     <SelectValue />
                   </SelectTrigger>
@@ -407,9 +634,32 @@ export function DraftWizard({
         <TabsContent value="screening" className="mt-4">
           <div className="space-y-4">
             {screeningAnswers.map((qa, i) => (
-              <div key={i} className="rounded-xl border bg-card p-5 shadow-sm space-y-3">
+              <div
+                key={i}
+                className="rounded-xl border bg-card p-5 shadow-sm space-y-3"
+              >
                 <div className="flex items-start justify-between gap-3">
-                  <p className="text-sm font-medium leading-snug">{qa.question}</p>
+                  <div className="flex-1 space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      {qa.pinned ? (
+                        <Badge className="bg-green-100 text-green-800 border-0 text-xs gap-1 hover:bg-green-100">
+                          <BookOpen className="h-3 w-3" />
+                          From library
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className="text-xs gap-1 text-muted-foreground border-muted"
+                        >
+                          <Sparkles className="h-3 w-3" />
+                          Generated
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-sm font-medium leading-snug">
+                      {qa.question}
+                    </p>
+                  </div>
                   <Button
                     size="sm"
                     variant="outline"
@@ -455,50 +705,77 @@ export function DraftWizard({
                   <h3 className="font-semibold text-sm">Summary</h3>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="space-y-1">
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Original</p>
-                      <p className="text-sm text-muted-foreground">{result.resume_suggestions.summary.original}</p>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Original
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {result.resume_suggestions.summary.original}
+                      </p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-xs font-medium text-green-600 uppercase tracking-wide">Suggested</p>
-                      <p className="text-sm">{result.resume_suggestions.summary.suggested}</p>
+                      <p className="text-xs font-medium text-green-600 uppercase tracking-wide">
+                        Suggested
+                      </p>
+                      <p className="text-sm">
+                        {result.resume_suggestions.summary.suggested}
+                      </p>
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground italic">{result.resume_suggestions.summary.reason}</p>
+                  <p className="text-xs text-muted-foreground italic">
+                    {result.resume_suggestions.summary.reason}
+                  </p>
                 </div>
               )}
 
               {/* Bullet suggestions */}
-              {result.resume_suggestions.experience_bullets && result.resume_suggestions.experience_bullets.length > 0 && (
-                <div className="rounded-xl border bg-card p-5 shadow-sm space-y-3">
-                  <h3 className="font-semibold text-sm">Experience Bullet Improvements</h3>
-                  <div className="space-y-4">
-                    {result.resume_suggestions.experience_bullets.map((b, i) => (
-                      <div key={i} className="grid gap-2 sm:grid-cols-2 text-sm">
-                        <div>
-                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Original</p>
-                          <p className="text-muted-foreground">• {b.original}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-medium text-green-600 uppercase tracking-wide mb-1">Suggested</p>
-                          <p>• {b.suggested}</p>
-                        </div>
-                      </div>
-                    ))}
+              {result.resume_suggestions.experience_bullets &&
+                result.resume_suggestions.experience_bullets.length > 0 && (
+                  <div className="rounded-xl border bg-card p-5 shadow-sm space-y-3">
+                    <h3 className="font-semibold text-sm">
+                      Experience Bullet Improvements
+                    </h3>
+                    <div className="space-y-4">
+                      {result.resume_suggestions.experience_bullets.map(
+                        (b, i) => (
+                          <div
+                            key={i}
+                            className="grid gap-2 sm:grid-cols-2 text-sm"
+                          >
+                            <div>
+                              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                                Original
+                              </p>
+                              <p className="text-muted-foreground">
+                                • {b.original}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium text-green-600 uppercase tracking-wide mb-1">
+                                Suggested
+                              </p>
+                              <p>• {b.suggested}</p>
+                            </div>
+                          </div>
+                        )
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
               {/* Keywords */}
-              {result.resume_suggestions.keywords_to_add && result.resume_suggestions.keywords_to_add.length > 0 && (
-                <div className="rounded-xl border bg-card p-5 shadow-sm space-y-3">
-                  <h3 className="font-semibold text-sm">Keywords to Add</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {result.resume_suggestions.keywords_to_add.map((kw) => (
-                      <Badge key={kw} variant="secondary">{kw}</Badge>
-                    ))}
+              {result.resume_suggestions.keywords_to_add &&
+                result.resume_suggestions.keywords_to_add.length > 0 && (
+                  <div className="rounded-xl border bg-card p-5 shadow-sm space-y-3">
+                    <h3 className="font-semibold text-sm">Keywords to Add</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {result.resume_suggestions.keywords_to_add.map((kw) => (
+                        <Badge key={kw} variant="secondary">
+                          {kw}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
             </div>
           ) : (
             <div className="rounded-xl border bg-card p-10 shadow-sm text-center space-y-3">

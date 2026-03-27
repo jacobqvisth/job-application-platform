@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getUserProfile } from "@/lib/data/profile";
-import { getUserScreeningAnswers } from "@/lib/data/screening-answers";
+import { getCanonicalQuestionsWithAnswers } from "@/lib/data/answer-library";
 import { getResumeById } from "@/lib/data/resumes";
 import Anthropic from "@anthropic-ai/sdk";
 import type {
@@ -9,6 +9,13 @@ import type {
   SkillsSectionContent,
   SummarySectionContent,
 } from "@/lib/types/database";
+
+const RATING_ORDER: Record<string, number> = {
+  strong: 0,
+  good: 1,
+  needs_work: 2,
+  untested: 3,
+};
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -20,7 +27,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const { jobDescription, tone = "formal", resumeId } = await req.json();
+  const {
+    jobDescription,
+    tone = "formal",
+    resumeId,
+    pinnedAnswers = {},
+  } = (await req.json()) as {
+    jobDescription?: string;
+    tone?: string;
+    resumeId?: string;
+    pinnedAnswers?: Record<string, string>;
+  };
 
   if (!jobDescription) {
     return NextResponse.json(
@@ -29,10 +46,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Load profile data and screening answer history in parallel
-  const [profile, previousAnswers] = await Promise.all([
+  // Load profile and library context in parallel
+  const [profile, canonicalQuestions] = await Promise.all([
     getUserProfile(user.id),
-    getUserScreeningAnswers(user.id, 20),
+    getCanonicalQuestionsWithAnswers(user.id),
   ]);
 
   // Build profile context string
@@ -68,20 +85,47 @@ ${
 `.trim()
     : "CANDIDATE PROFILE: Not yet filled in. Generate a generic application.";
 
-  // Build previous answers context
-  const previousAnswersContext =
-    previousAnswers.length > 0
-      ? `\nPREVIOUS SCREENING ANSWERS (for style/tone reference):\n${previousAnswers
-          .slice(0, 10)
-          .map((a) => `Q: ${a.question}\nA: ${a.answer}`)
+  // Build structured library context from canonical questions with good/strong answers
+  const goodAnswers = canonicalQuestions
+    .filter((q) =>
+      q.screening_answers.some(
+        (a) => a.rating === "strong" || a.rating === "good"
+      )
+    )
+    .map((q) => ({
+      category: q.category,
+      canonical_text: q.canonical_text,
+      best_answer: [...q.screening_answers].sort(
+        (a, b) =>
+          (RATING_ORDER[a.rating] ?? 4) - (RATING_ORDER[b.rating] ?? 4)
+      )[0]?.answer ?? "",
+    }));
+
+  const libraryContext =
+    goodAnswers.length > 0
+      ? `\nANSWER LIBRARY (candidate's best answers by category):\n${goodAnswers
+          .map(
+            (a) =>
+              `[${a.category.toUpperCase()}] "${a.canonical_text}"\nBest answer: ${a.best_answer}`
+          )
           .join("\n\n")}`
       : "";
 
-  const toneDescription = {
-    formal: "professional and formal",
-    conversational: "warm and conversational",
-    startup: "energetic and startup-friendly",
-  }[tone as "formal" | "conversational" | "startup"] ?? "professional and formal";
+  const pinnedEntries = Object.entries(pinnedAnswers);
+  const pinnedContext =
+    pinnedEntries.length > 0
+      ? `\nPINNED ANSWERS (use these VERBATIM for matching questions, set pinned: true):\n${pinnedEntries
+          .map(([q, a]) => `Q: ${q}\nA: ${a}`)
+          .join("\n\n")}`
+      : "";
+
+  const toneDescription =
+    {
+      formal: "professional and formal",
+      conversational: "warm and conversational",
+      startup: "energetic and startup-friendly",
+    }[tone as "formal" | "conversational" | "startup"] ??
+    "professional and formal";
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -96,7 +140,8 @@ ${
         content: `Generate a complete job application package for this candidate.
 
 ${profileContext}
-${previousAnswersContext}
+${libraryContext}
+${pinnedContext}
 
 JOB DESCRIPTION:
 ${jobDescription.slice(0, 3000)}
@@ -107,6 +152,9 @@ INSTRUCTIONS:
 3. Detect the company name and role title from the JD
 4. Score the candidate's match (0-100) and provide brief notes
 5. List the key requirements from the JD
+6. For screening questions that match the PINNED ANSWERS — use that answer verbatim and set "pinned": true
+7. For other questions — use the ANSWER LIBRARY as style/tone/content reference (do NOT copy verbatim), set "pinned": false
+8. If no library or pinned context is provided, generate fresh answers; set all "pinned": false
 
 Return ONLY a JSON object (no markdown, no code fences) with this exact structure:
 {
@@ -117,7 +165,8 @@ Return ONLY a JSON object (no markdown, no code fences) with this exact structur
     {
       "question": "Question text",
       "answer": "Answer text",
-      "tags": ["tag1", "tag2"]
+      "tags": ["tag1", "tag2"],
+      "pinned": false
     }
   ],
   "key_requirements": ["requirement1", "requirement2"],
@@ -136,11 +185,24 @@ Return ONLY a JSON object (no markdown, no code fences) with this exact structur
     );
   }
 
-  let draftResult;
+  let draftResult: {
+    detected_company?: string;
+    detected_role?: string;
+    cover_letter?: string;
+    screening_questions?: Array<{
+      question: string;
+      answer: string;
+      tags: string[];
+      pinned?: boolean;
+    }>;
+    key_requirements?: string[];
+    match_score?: number;
+    match_notes?: string;
+  };
   try {
     const jsonMatch = content.text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("No JSON found in response");
-    draftResult = JSON.parse(jsonMatch[0]);
+    draftResult = JSON.parse(jsonMatch[0]) as typeof draftResult;
   } catch {
     return NextResponse.json(
       { error: "Failed to parse Claude's response" },
@@ -148,21 +210,38 @@ Return ONLY a JSON object (no markdown, no code fences) with this exact structur
     );
   }
 
+  // Post-process: mark pinned questions by checking answer text against pinnedAnswers values
+  const pinnedValues = new Set(Object.values(pinnedAnswers));
+  const processedQuestions = (draftResult.screening_questions ?? []).map(
+    (q) => ({
+      ...q,
+      pinned: pinnedValues.has(q.answer) || q.pinned === true,
+    })
+  );
+
   // If resumeId provided, also get resume tailoring suggestions
   let resumeSuggestions = undefined;
   if (resumeId) {
     const resume = await getResumeById(resumeId);
     if (resume && resume.user_id === user.id) {
-      const summarySection = resume.content.sections.find((s) => s.type === "summary");
-      const experienceSection = resume.content.sections.find((s) => s.type === "experience");
-      const skillsSection = resume.content.sections.find((s) => s.type === "skills");
+      const summarySection = resume.content.sections.find(
+        (s) => s.type === "summary"
+      );
+      const experienceSection = resume.content.sections.find(
+        (s) => s.type === "experience"
+      );
+      const skillsSection = resume.content.sections.find(
+        (s) => s.type === "skills"
+      );
 
       const currentSummary = summarySection
         ? (summarySection.content as SummarySectionContent).text
         : "";
       const currentExperience = experienceSection
         ? JSON.stringify(
-            (experienceSection.content as ExperienceSectionContent).items.map((item) => ({
+            (
+              experienceSection.content as ExperienceSectionContent
+            ).items.map((item) => ({
               title: item.title,
               company: item.company,
               bullets: item.bullets,
@@ -170,7 +249,9 @@ Return ONLY a JSON object (no markdown, no code fences) with this exact structur
           )
         : "[]";
       const currentSkills = skillsSection
-        ? JSON.stringify((skillsSection.content as SkillsSectionContent).categories)
+        ? JSON.stringify(
+            (skillsSection.content as SkillsSectionContent).categories
+          )
         : "[]";
 
       const tailorResponse = await anthropic.messages.create({
@@ -241,7 +322,7 @@ Only suggest changes that meaningfully improve alignment with the job descriptio
     detected_role: draftResult.detected_role ?? "Unknown",
     cover_letter: draftResult.cover_letter ?? "",
     tone,
-    screening_questions: draftResult.screening_questions ?? [],
+    screening_questions: processedQuestions,
     key_requirements: draftResult.key_requirements ?? [],
     match_score: draftResult.match_score ?? 0,
     match_notes: draftResult.match_notes ?? "",

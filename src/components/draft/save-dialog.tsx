@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { linkScreeningAnswersToLibraryAction } from "@/app/(protected)/dashboard/answers/actions";
 import {
   Dialog,
   DialogContent,
@@ -85,6 +86,10 @@ export function SaveDialog({
       if (!res.ok) {
         toast.error(data.error ?? "Failed to save application");
         return;
+      }
+      // Fire-and-forget: link saved answers to the canonical question library
+      if (data.applicationId) {
+        void linkScreeningAnswersToLibraryAction(data.applicationId as string);
       }
       toast.success(
         <span>

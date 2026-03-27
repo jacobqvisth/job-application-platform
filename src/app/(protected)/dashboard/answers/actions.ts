@@ -17,6 +17,18 @@ import {
 } from "@/lib/data/screening-answers";
 import type { AnswerCategory, AnswerRating, AnswerTone } from "@/lib/types/database";
 
+const VALID_CATEGORIES: AnswerCategory[] = [
+  "behavioral",
+  "technical",
+  "motivational",
+  "situational",
+  "salary",
+  "availability",
+  "why_us",
+  "why_role",
+  "other",
+];
+
 async function getAuthenticatedUserId(): Promise<string> {
   const supabase = await createClient();
   const { data, error } = await supabase.auth.getUser();
@@ -181,4 +193,127 @@ export async function updateAnswerToneAction(
   await getAuthenticatedUserId();
   await updateAnswerTone(answerId, tone);
   revalidatePath("/dashboard/answers");
+}
+
+/**
+ * Background action: link newly saved screening answers to the canonical question library.
+ * Called fire-and-forget after saving a draft — does not block the save flow.
+ */
+export async function linkScreeningAnswersToLibraryAction(
+  applicationId: string
+): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  // Fetch all screening answers for this application
+  const { data: answers } = await supabase
+    .from("screening_answers")
+    .select("id, question, answer, canonical_question_id, tags")
+    .eq("application_id", applicationId)
+    .eq("user_id", user.id);
+
+  if (!answers?.length) return;
+
+  const { Anthropic } = await import("@anthropic-ai/sdk");
+  const client = new Anthropic();
+
+  for (const answer of answers as Array<{
+    id: string;
+    question: string;
+    answer: string;
+    canonical_question_id: string | null;
+    tags: string[];
+  }>) {
+    // Skip if already linked to a canonical question
+    if (answer.canonical_question_id) continue;
+
+    try {
+      // Categorize the question using Haiku
+      const msg = await client.messages.create({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 256,
+        system:
+          "You are a job application question classifier. Classify the question and suggest tags. Return JSON only, no markdown: { \"category\": \"...\", \"tags\": [\"...\"] }",
+        messages: [{ role: "user", content: answer.question }],
+      });
+
+      const text =
+        msg.content[0].type === "text" ? msg.content[0].text.trim() : "{}";
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      const parsed = jsonMatch
+        ? (JSON.parse(jsonMatch[0]) as {
+            category?: string;
+            tags?: unknown[];
+          })
+        : {};
+
+      const category = VALID_CATEGORIES.includes(
+        parsed.category as AnswerCategory
+      )
+        ? (parsed.category as AnswerCategory)
+        : "other";
+
+      const tags = Array.isArray(parsed.tags)
+        ? (parsed.tags as unknown[])
+            .filter((t): t is string => typeof t === "string")
+            .slice(0, 3)
+        : [];
+
+      // Search for a matching canonical question in the same category
+      const { data: candidates } = await supabase
+        .from("canonical_questions")
+        .select("id, canonical_text")
+        .eq("user_id", user.id)
+        .eq("category", category);
+
+      let matchedId: string | null = null;
+
+      if (candidates?.length) {
+        // Simple keyword overlap matching
+        const questionWords = answer.question
+          .toLowerCase()
+          .split(/\W+/)
+          .filter((w) => w.length > 3);
+
+        let bestOverlap = 0;
+        for (const candidate of candidates as Array<{
+          id: string;
+          canonical_text: string;
+        }>) {
+          const candidateWords = candidate.canonical_text
+            .toLowerCase()
+            .split(/\W+/)
+            .filter((w) => w.length > 3);
+          const overlap = questionWords.filter((w) =>
+            candidateWords.includes(w)
+          ).length;
+          if (overlap > bestOverlap) {
+            bestOverlap = overlap;
+            matchedId = candidate.id;
+          }
+        }
+        // Require at least 1 meaningful word in common
+        if (bestOverlap === 0) matchedId = null;
+      }
+
+      if (!matchedId) {
+        // No match — create a new canonical question
+        const newQuestion = await createCanonicalQuestion(user.id, {
+          canonical_text: answer.question,
+          category,
+          tags,
+        });
+        matchedId = newQuestion.id;
+      }
+
+      if (matchedId) {
+        await linkAnswerToCanonical(answer.id, matchedId);
+      }
+    } catch {
+      // Continue processing remaining answers on error
+    }
+  }
 }
