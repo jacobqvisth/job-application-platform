@@ -14,6 +14,7 @@ import {
   PenLine,
   Puzzle,
   BookOpen,
+  BarChart3,
 } from "lucide-react";
 
 const links = [
@@ -21,6 +22,7 @@ const links = [
   { href: "/dashboard/draft", label: "Draft Application", icon: PenLine },
   { href: "/dashboard/answers", label: "Answer Library", icon: BookOpen },
   { href: "/dashboard/applications", label: "Applications", icon: Kanban },
+  { href: "/dashboard/review", label: "Weekly Review", icon: BarChart3 },
   { href: "/dashboard/resumes", label: "Resumes", icon: FileText },
   { href: "/dashboard/emails", label: "Emails", icon: Mail },
   { href: "/dashboard/profile", label: "Profile", icon: User },
