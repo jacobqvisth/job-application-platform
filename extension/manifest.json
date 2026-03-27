@@ -20,7 +20,8 @@
     "*://*.greenhouse.io/*",
     "*://*.lever.co/*",
     "*://*.linkedin.com/*",
-    "*://job-application-platform-lake.vercel.app/*"
+    "*://job-application-platform-lake.vercel.app/*",
+    "*://*/*"
   ],
   "background": {
     "service_worker": "background.js",
@@ -38,6 +39,11 @@
         "*://*.lever.co/*"
       ],
       "js": ["content.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["*://*/*"],
+      "js": ["content-teamtailor.js"],
       "run_at": "document_idle"
     },
     {
