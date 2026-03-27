@@ -14,7 +14,9 @@ export function StatsCards({ stats }: StatsCardsProps) {
           <CardTitle className="text-sm font-medium text-muted-foreground">
             Total Applications
           </CardTitle>
-          <Briefcase className="h-4 w-4 text-muted-foreground" />
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-100">
+            <Briefcase className="h-4 w-4 text-violet-600" />
+          </div>
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{stats.total}</div>
@@ -26,7 +28,9 @@ export function StatsCards({ stats }: StatsCardsProps) {
           <CardTitle className="text-sm font-medium text-muted-foreground">
             This Week
           </CardTitle>
-          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-100">
+            <Calendar className="h-4 w-4 text-blue-600" />
+          </div>
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{stats.thisWeek}</div>
@@ -38,7 +42,9 @@ export function StatsCards({ stats }: StatsCardsProps) {
           <CardTitle className="text-sm font-medium text-muted-foreground">
             Response Rate
           </CardTitle>
-          <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100">
+            <TrendingUp className="h-4 w-4 text-emerald-600" />
+          </div>
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">
@@ -52,7 +58,9 @@ export function StatsCards({ stats }: StatsCardsProps) {
           <CardTitle className="text-sm font-medium text-muted-foreground">
             Interviews
           </CardTitle>
-          <BarChart3 className="h-4 w-4 text-muted-foreground" />
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-100">
+            <BarChart3 className="h-4 w-4 text-amber-600" />
+          </div>
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">

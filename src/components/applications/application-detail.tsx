@@ -9,7 +9,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -58,22 +58,6 @@ const REMOTE_TYPE_OPTIONS: { value: RemoteType; label: string }[] = [
   { value: null, label: "Not specified" },
 ];
 
-function statusVariant(
-  status: ApplicationStatus
-): "default" | "secondary" | "destructive" | "outline" {
-  switch (status) {
-    case "offer":
-      return "default";
-    case "interview":
-    case "screening":
-      return "secondary";
-    case "rejected":
-    case "withdrawn":
-      return "destructive";
-    default:
-      return "outline";
-  }
-}
 
 interface ApplicationDetailProps {
   application: ApplicationWithEvents | null;
@@ -216,9 +200,7 @@ export function ApplicationDetail({
             {application.company} — {application.role}
           </SheetTitle>
           <SheetDescription className="flex items-center gap-2">
-            <Badge variant={statusVariant(status)} className="capitalize">
-              {status}
-            </Badge>
+            <StatusBadge status={status} />
             {application.applied_at && (
               <span className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Calendar className="size-3" />

@@ -45,8 +45,8 @@ export function NavLinks({ collapsed }: { collapsed?: boolean }) {
             className={cn(
               "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
               isActive
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                ? "bg-sidebar-primary/20 text-sidebar-primary"
+                : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             )}
           >
             <link.icon className="h-4 w-4 shrink-0" />

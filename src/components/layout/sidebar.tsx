@@ -12,21 +12,21 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "hidden md:flex flex-col border-r bg-card transition-all duration-200",
-        collapsed ? "w-16" : "w-64"
+        "hidden md:flex flex-col bg-sidebar text-sidebar-foreground transition-all duration-200",
+        collapsed ? "w-16" : "w-60"
       )}
     >
-      <div className="flex h-14 items-center gap-2 border-b px-4">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary">
-          <Briefcase className="h-4 w-4 text-primary-foreground" />
+      <div className="flex h-14 items-center gap-2.5 border-b border-sidebar-border px-4">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 shadow-sm">
+          <Briefcase className="h-4 w-4 text-white" />
         </div>
         {!collapsed && (
-          <span className="text-sm font-semibold truncate">JobTracker</span>
+          <span className="text-sm font-semibold text-sidebar-foreground truncate">JobTracker</span>
         )}
         <Button
           variant="ghost"
           size="icon"
-          className={cn("ml-auto h-8 w-8 shrink-0", collapsed && "ml-0")}
+          className={cn("ml-auto h-8 w-8 shrink-0 text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent", collapsed && "ml-0")}
           onClick={() => setCollapsed(!collapsed)}
         >
           {collapsed ? (

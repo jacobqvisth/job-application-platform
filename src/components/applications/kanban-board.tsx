@@ -20,12 +20,12 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 
 import type { Application, ApplicationStatus } from "@/lib/types/database";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 import {
   Building2,
-  Briefcase,
   MapPin,
   Calendar,
   GripVertical,
@@ -43,6 +43,16 @@ interface StatusColumn {
   textColor: string;
   ringColor: string;
 }
+
+const COLUMN_ACCENTS: Record<ApplicationStatus, string> = {
+  saved:     "border-t-2 border-t-slate-300",
+  applied:   "border-t-2 border-t-blue-400",
+  screening: "border-t-2 border-t-violet-400",
+  interview: "border-t-2 border-t-amber-400",
+  offer:     "border-t-2 border-t-emerald-400",
+  rejected:  "border-t-2 border-t-rose-400",
+  withdrawn: "border-t-2 border-t-gray-300",
+};
 
 const STATUS_COLUMNS: StatusColumn[] = [
   {
@@ -216,19 +226,14 @@ function KanbanColumn({ column, applications, onCardClick }: KanbanColumnProps) 
     <Card
       className={cn(
         "flex h-full w-72 shrink-0 flex-col overflow-hidden transition-colors",
+        COLUMN_ACCENTS[column.status],
         isOver && "ring-2 ring-primary/30"
       )}
     >
-      {/* Column header with color accent */}
+      {/* Column header */}
       <CardHeader className="space-y-0 border-b p-0">
-        <div className={cn("h-1 w-full", column.color)} />
         <div className="flex items-center justify-between px-3 py-2.5">
-          <div className="flex items-center gap-2">
-            <div className={cn("h-2 w-2 rounded-full", column.color)} />
-            <CardTitle className="text-sm font-semibold">
-              {column.label}
-            </CardTitle>
-          </div>
+          <StatusBadge status={column.status} />
           <Badge
             variant="secondary"
             className={cn(
