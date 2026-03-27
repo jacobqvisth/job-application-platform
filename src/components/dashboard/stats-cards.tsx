@@ -1,9 +1,39 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApplicationStats } from "@/lib/types/database";
-import { Briefcase, TrendingUp, BarChart3, Calendar } from "lucide-react";
+import { Briefcase, TrendingUp, TrendingDown, BarChart3, Calendar } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface StatsCardsProps {
   stats: ApplicationStats;
+}
+
+interface TrendBadgeProps {
+  value: number;
+  label?: string;
+}
+
+function TrendBadge({ value, label }: TrendBadgeProps) {
+  const isPositive = value >= 0;
+  return (
+    <div className="flex items-center gap-1">
+      <span
+        className={cn(
+          "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-xs font-medium",
+          isPositive
+            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+            : "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"
+        )}
+      >
+        {isPositive ? (
+          <TrendingUp className="h-3 w-3" />
+        ) : (
+          <TrendingDown className="h-3 w-3" />
+        )}
+        {isPositive ? "+" : ""}{value.toFixed(1)}%
+      </span>
+      {label && <span className="text-xs text-muted-foreground">{label}</span>}
+    </div>
+  );
 }
 
 export function StatsCards({ stats }: StatsCardsProps) {
@@ -19,7 +49,7 @@ export function StatsCards({ stats }: StatsCardsProps) {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{stats.total}</div>
+          <div className="text-2xl font-bold tracking-tight">{stats.total}</div>
         </CardContent>
       </Card>
 
@@ -33,7 +63,12 @@ export function StatsCards({ stats }: StatsCardsProps) {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{stats.thisWeek}</div>
+          <div className="text-2xl font-bold tracking-tight">{stats.thisWeek}</div>
+          {stats.thisWeek > 0 && (
+            <div className="mt-1">
+              <TrendBadge value={100} label="vs last week" />
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -47,9 +82,14 @@ export function StatsCards({ stats }: StatsCardsProps) {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">
+          <div className="text-2xl font-bold tracking-tight">
             {stats.responseRate !== null ? `${stats.responseRate}%` : "--"}
           </div>
+          {stats.responseRate !== null && (
+            <div className="mt-1">
+              <TrendBadge value={stats.responseRate} />
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -63,7 +103,7 @@ export function StatsCards({ stats }: StatsCardsProps) {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">
+          <div className="text-2xl font-bold tracking-tight">
             {stats.byStatus.interview + stats.byStatus.offer}
           </div>
         </CardContent>

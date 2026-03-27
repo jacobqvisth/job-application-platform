@@ -12,16 +12,16 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "hidden md:flex flex-col bg-sidebar text-sidebar-foreground transition-all duration-200",
+        "hidden md:flex flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-all duration-200",
         collapsed ? "w-16" : "w-60"
       )}
     >
       <div className="flex h-14 items-center gap-2.5 border-b border-sidebar-border px-4">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 shadow-sm">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[oklch(0.44_0.19_265)] to-[oklch(0.62_0.16_240)] shadow-sm">
           <Briefcase className="h-4 w-4 text-white" />
         </div>
         {!collapsed && (
-          <span className="text-sm font-semibold text-sidebar-foreground truncate">JobTracker</span>
+          <span className="text-sm font-semibold tracking-tight text-sidebar-foreground truncate">JobTracker</span>
         )}
         <Button
           variant="ghost"
