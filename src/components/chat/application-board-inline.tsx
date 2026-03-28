@@ -26,7 +26,9 @@ function AppCard({ app, onAppend }: { app: ApplicationForBoard; onAppend?: (s: s
     <button
       className="w-full text-left rounded-md border bg-background px-2.5 py-2 hover:bg-muted/50 transition-colors"
       onClick={() =>
-        onAppend?.(`Tell me about my ${app.company} - ${app.role} application`)
+        onAppend?.(
+          `Tell me about my ${app.company} - ${app.role} application (status: ${app.status}, updated ${app.daysSinceUpdate} days ago)`
+        )
       }
     >
       <p className="text-xs font-semibold truncate">{app.company}</p>

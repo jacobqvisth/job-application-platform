@@ -169,3 +169,33 @@ export interface NavigateData {
   pageName: string;
   description: string;
 }
+
+// ─── Phase 10c: Flow tools ──────────────────────────────────────────────────
+
+export interface EmailDraftData {
+  company: string;
+  role: string;
+  emailType: 'follow_up' | 'thank_you' | 'check_in';
+  subject: string;
+  body: string;
+  appliedAt?: string | null;
+  daysSinceApplied?: number;
+  contactEmail?: string | null;
+  applicationId?: string;
+}
+
+export interface PracticeEvaluation {
+  score: 'strong' | 'good' | 'needs_work';
+  feedback: string;
+  suggestions: string[];
+}
+
+export interface PracticeQuestionData {
+  company: string;
+  questionIndex: number;
+  question: string;
+  userAnswer?: string;
+  evaluation?: PracticeEvaluation;
+  totalQuestions: number;
+  isLastQuestion: boolean;
+}

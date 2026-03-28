@@ -12,8 +12,11 @@ import {
   showResumePreviewTool,
   showInterviewPrepTool,
   navigateToTool,
+  draftFollowUpEmailTool,
+  practiceInterviewQuestionTool,
 } from '@/lib/chat/tools';
 import { buildSystemPrompt } from '@/lib/chat/system-prompt';
+import { extractFlowContext } from '@/lib/chat/flow-context';
 
 export const maxDuration = 60;
 
@@ -43,10 +46,14 @@ export async function POST(req: Request) {
       .limit(10),
   ]);
 
+  // Extract flow context from conversation history for system prompt injection
+  const flowContext = extractFlowContext(messages ?? []);
+
   const systemPrompt = buildSystemPrompt(
     profileRes.data,
     summaryRes.data,
-    recentAppsRes.data
+    recentAppsRes.data,
+    flowContext
   );
 
   const tools = {
@@ -60,6 +67,8 @@ export async function POST(req: Request) {
     showResumePreview: showResumePreviewTool(user.id),
     showInterviewPrep: showInterviewPrepTool(user.id),
     navigateTo: navigateToTool(),
+    draftFollowUpEmail: draftFollowUpEmailTool(user.id),
+    practiceInterviewQuestion: practiceInterviewQuestionTool(user.id),
   };
 
   // Convert UIMessages to ModelMessages for streamText
@@ -70,7 +79,7 @@ export async function POST(req: Request) {
     system: systemPrompt,
     messages: modelMessages,
     tools,
-    stopWhen: stepCountIs(5),
+    stopWhen: stepCountIs(8),
   });
 
   return result.toUIMessageStreamResponse();

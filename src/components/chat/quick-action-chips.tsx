@@ -1,7 +1,8 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Search, BarChart3, Briefcase, MessageSquare, FileText, Kanban } from "lucide-react";
+import { Search, BarChart3, Briefcase, MessageSquare, FileText, Kanban, Mail } from "lucide-react";
+import type { FlowContext } from "@/lib/chat/flow-context";
 
 type LastTool =
   | "searchJobs"
@@ -14,6 +15,8 @@ type LastTool =
   | "showResumePreview"
   | "showInterviewPrep"
   | "navigateTo"
+  | "draftFollowUpEmail"
+  | "practiceInterviewQuestion"
   | null;
 
 interface Chip {
@@ -48,7 +51,7 @@ const DEFAULT_CHIPS: Chip[] = [
 const AFTER_JOBS_CHIPS: Chip[] = [
   {
     label: "Apply to top match",
-    message: "Prepare an application for the highest-scored job",
+    message: "Prepare an application for the highest-scored job from my search",
   },
   {
     label: "Refine search",
@@ -62,16 +65,17 @@ const AFTER_JOBS_CHIPS: Chip[] = [
 
 const AFTER_PACKAGE_CHIPS: Chip[] = [
   {
-    label: "Find more jobs",
-    message: "Search for more jobs matching my profile",
+    label: "Apply to next match",
+    message: "Apply to the next highest-scored job from my search",
+  },
+  {
+    label: "Draft follow-up",
+    message: "Draft a follow-up email for this application",
+    icon: <Mail className="h-3 w-3" />,
   },
   {
     label: "View pipeline",
-    message: "Show me my application board",
-  },
-  {
-    label: "Check stats",
-    message: "Give me my weekly stats and progress report",
+    message: "Show me my updated application board",
   },
 ];
 
@@ -129,21 +133,95 @@ const AFTER_RESUME_CHIPS: Chip[] = [
 const AFTER_PREP_CHIPS: Chip[] = [
   {
     label: "Practice questions",
-    message: "Ask me mock interview questions so I can practice",
+    message: "Let's practice — ask me the first question",
     icon: <MessageSquare className="h-3 w-3" />,
   },
   {
-    label: "Another company",
-    message: "Prep me for another interview",
+    label: "View my answers",
+    message: "Search my answer library for relevant answers",
   },
   {
-    label: "My applications",
+    label: "Back to pipeline",
+    message: "Show my applications",
+    icon: <Briefcase className="h-3 w-3" />,
+  },
+];
+
+const AFTER_PRACTICE_CHIPS: Chip[] = [
+  {
+    label: "Next question",
+    message: "Ask me the next practice question",
+    icon: <MessageSquare className="h-3 w-3" />,
+  },
+  {
+    label: "Try that again",
+    message: "Let me try that question again",
+  },
+  {
+    label: "End practice",
+    message: "Summarize my practice session",
+  },
+];
+
+const AFTER_EMAIL_CHIPS: Chip[] = [
+  {
+    label: "Another follow-up",
+    message: "Draft a follow-up email for another application",
+    icon: <Mail className="h-3 w-3" />,
+  },
+  {
+    label: "Find new jobs",
+    message: "Search for jobs matching my profile",
+    icon: <Search className="h-3 w-3" />,
+  },
+  {
+    label: "View pipeline",
     message: "Show me my application board",
     icon: <Briefcase className="h-3 w-3" />,
   },
 ];
 
-function getChips(lastTool: LastTool): Chip[] {
+const WEEKLY_REVIEW_CHIPS: Chip[] = [
+  {
+    label: "Check stale apps",
+    message: "Show applications with no updates in the past week",
+    icon: <Briefcase className="h-3 w-3" />,
+  },
+  {
+    label: "Find new jobs",
+    message: "Search for new jobs matching my profile",
+    icon: <Search className="h-3 w-3" />,
+  },
+  {
+    label: "View pipeline",
+    message: "Show my application board",
+    icon: <Kanban className="h-3 w-3" />,
+  },
+];
+
+function getChips(lastTool: LastTool, flowContext?: FlowContext): Chip[] {
+  // Flow-aware chips take priority when an active flow is detected
+  if (flowContext?.activeFlow) {
+    if (flowContext.activeFlow === 'discovery') {
+      if (lastTool === 'searchJobs') return AFTER_JOBS_CHIPS;
+      if (lastTool === 'prepareApplication') return AFTER_PACKAGE_CHIPS;
+    }
+
+    if (flowContext.activeFlow === 'interview_prep') {
+      if (lastTool === 'showInterviewPrep') return AFTER_PREP_CHIPS;
+      if (lastTool === 'practiceInterviewQuestion') return AFTER_PRACTICE_CHIPS;
+    }
+
+    if (flowContext.activeFlow === 'weekly_review') {
+      if (lastTool === 'getWeeklyStats') return WEEKLY_REVIEW_CHIPS;
+    }
+
+    if (flowContext.activeFlow === 'email_followup') {
+      if (lastTool === 'draftFollowUpEmail') return AFTER_EMAIL_CHIPS;
+    }
+  }
+
+  // Fall back to tool-based chips
   switch (lastTool) {
     case "searchJobs":
       return AFTER_JOBS_CHIPS;
@@ -158,6 +236,12 @@ function getChips(lastTool: LastTool): Chip[] {
       return AFTER_RESUME_CHIPS;
     case "showInterviewPrep":
       return AFTER_PREP_CHIPS;
+    case "practiceInterviewQuestion":
+      return AFTER_PRACTICE_CHIPS;
+    case "draftFollowUpEmail":
+      return AFTER_EMAIL_CHIPS;
+    case "getWeeklyStats":
+      return WEEKLY_REVIEW_CHIPS;
     default:
       return DEFAULT_CHIPS;
   }
@@ -165,12 +249,13 @@ function getChips(lastTool: LastTool): Chip[] {
 
 interface Props {
   lastTool: LastTool;
+  flowContext?: FlowContext;
   onSelect: (message: string) => void;
   disabled?: boolean;
 }
 
-export function QuickActionChips({ lastTool, onSelect, disabled }: Props) {
-  const chips = getChips(lastTool);
+export function QuickActionChips({ lastTool, flowContext, onSelect, disabled }: Props) {
+  const chips = getChips(lastTool, flowContext);
 
   return (
     <div className="flex flex-wrap gap-2 px-4 pb-2">

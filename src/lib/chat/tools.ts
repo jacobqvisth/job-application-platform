@@ -13,6 +13,9 @@ import type {
   ResumePreviewData,
   InterviewPrepData,
   NavigateData,
+  EmailDraftData,
+  PracticeQuestionData,
+  PracticeEvaluation,
 } from './types';
 
 // ─── Tool 1: Search Jobs ────────────────────────────────────────────────────
@@ -838,6 +841,285 @@ export function navigateToTool() {
         url,
         pageName: info.pageName,
         description: info.description,
+      };
+    },
+  });
+}
+
+// ─── Tool 11: Draft Follow-Up Email ─────────────────────────────────────────
+
+export function draftFollowUpEmailTool(userId: string) {
+  return tool({
+    description:
+      'Draft a follow-up email for a job application. Use when the user wants to follow up on an application, check in after not hearing back, or send a thank-you note after an interview.',
+    inputSchema: zodSchema(
+      z.object({
+        applicationId: z.string().optional().describe('Specific application ID'),
+        company: z.string().optional().describe('Company name to look up'),
+        emailType: z
+          .enum(['follow_up', 'thank_you', 'check_in'])
+          .optional()
+          .default('follow_up')
+          .describe('Type of email to draft'),
+        additionalContext: z
+          .string()
+          .optional()
+          .describe('Any specific context to include (e.g., "I had the interview last Tuesday")'),
+      })
+    ),
+    execute: async ({
+      applicationId,
+      company,
+      emailType,
+      additionalContext,
+    }: {
+      applicationId?: string;
+      company?: string;
+      emailType?: 'follow_up' | 'thank_you' | 'check_in';
+      additionalContext?: string;
+    }): Promise<EmailDraftData> => {
+      const supabase = await createClient();
+
+      // Find the application
+      let appQuery = supabase
+        .from('applications')
+        .select('id, company, role, applied_at, updated_at, job_description')
+        .eq('user_id', userId);
+
+      if (applicationId) {
+        appQuery = appQuery.eq('id', applicationId);
+      } else if (company) {
+        appQuery = appQuery.ilike('company', `%${company}%`);
+      }
+
+      const { data: appData } = await appQuery
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      // Fetch user profile for sender name
+      const { data: profileData } = await supabase
+        .from('user_profile_data')
+        .select('contact_info, work_history')
+        .eq('user_id', userId)
+        .single();
+
+      const appCompany = appData?.company ?? company ?? 'the company';
+      const appRole = appData?.role ?? 'the role';
+      const appliedAt = appData?.applied_at ?? null;
+      const daysSinceApplied = appliedAt
+        ? Math.floor((Date.now() - new Date(appliedAt).getTime()) / (1000 * 60 * 60 * 24))
+        : undefined;
+
+      const contactInfo = profileData?.contact_info as { name?: string; email?: string } | null;
+      const senderName = contactInfo?.name ?? 'Your Name';
+
+      const resolvedType = emailType ?? 'follow_up';
+      const emailTypeLabels: Record<string, string> = {
+        follow_up: 'follow-up',
+        thank_you: 'thank-you after interview',
+        check_in: 'check-in about timeline',
+      };
+
+      const anthropicClient = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+
+      const prompt = `Draft a professional ${emailTypeLabels[resolvedType]} email for a job application.
+
+Application Details:
+Company: ${appCompany}
+Role: ${appRole}
+${appliedAt ? `Applied: ${new Date(appliedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}` : ''}
+${daysSinceApplied !== undefined ? `Days since applied: ${daysSinceApplied}` : ''}
+${additionalContext ? `Additional context: ${additionalContext}` : ''}
+
+Candidate: ${senderName}
+
+Generate a JSON response (no markdown fences) with this exact structure:
+{
+  "subject": "<concise subject line>",
+  "body": "<professional email body with proper greeting and sign-off, plain text>"
+}
+
+The email should be professional, concise (3-4 short paragraphs max), and warm. No HTML.`;
+
+      let result: { subject: string; body: string };
+      try {
+        const response = await anthropicClient.messages.create({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 1000,
+          messages: [{ role: 'user', content: prompt }],
+        });
+        const text = response.content[0].type === 'text' ? response.content[0].text : '';
+        const clean = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
+        result = JSON.parse(clean);
+      } catch {
+        const subjectMap: Record<string, string> = {
+          follow_up: `Following Up — ${appRole} Application`,
+          thank_you: `Thank You — ${appRole} Interview`,
+          check_in: `Checking In — ${appRole} Application`,
+        };
+        result = {
+          subject: subjectMap[resolvedType] ?? `Following Up — ${appRole} Application`,
+          body: `Dear Hiring Manager,\n\nI wanted to follow up on my application for the ${appRole} position at ${appCompany}. I remain very interested in this opportunity and would welcome the chance to discuss my qualifications further.\n\nThank you for your time and consideration.\n\nBest regards,\n${senderName}`,
+        };
+      }
+
+      return {
+        company: appCompany,
+        role: appRole,
+        emailType: resolvedType,
+        subject: result.subject ?? '',
+        body: result.body ?? '',
+        appliedAt,
+        daysSinceApplied,
+        contactEmail: null,
+        applicationId: appData?.id,
+      };
+    },
+  });
+}
+
+// ─── Tool 12: Practice Interview Question ───────────────────────────────────
+
+export function practiceInterviewQuestionTool(userId: string) {
+  return tool({
+    description:
+      'Ask the user a practice interview question and evaluate their answer. Use during interview prep practice sessions when the user wants to rehearse their responses. Start with questionIndex 0 and increment for each subsequent question.',
+    inputSchema: zodSchema(
+      z.object({
+        company: z.string().describe('Company they are preparing for'),
+        questionIndex: z
+          .number()
+          .describe('Which question to ask (0-4). Start at 0 for the first question.'),
+        userAnswer: z
+          .string()
+          .optional()
+          .describe(
+            "The user's answer to evaluate. If not provided, just present the question."
+          ),
+      })
+    ),
+    execute: async ({
+      company,
+      questionIndex,
+      userAnswer,
+    }: {
+      company: string;
+      questionIndex: number;
+      userAnswer?: string;
+    }): Promise<PracticeQuestionData> => {
+      const supabase = await createClient();
+
+      // Find the application for role context
+      const { data: appData } = await supabase
+        .from('applications')
+        .select('id, company, role, job_description')
+        .eq('user_id', userId)
+        .ilike('company', `%${company}%`)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const appCompany = appData?.company ?? company;
+      const appRole = appData?.role ?? 'the role';
+      const jobDescription = appData?.job_description ?? '';
+
+      const anthropicClient = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+
+      // Generate questions for this company/role
+      const questionsPrompt = `Generate exactly 5 interview questions for a ${appRole} role at ${appCompany}.
+${jobDescription ? `Job description excerpt:\n${jobDescription.slice(0, 800)}` : ''}
+
+Return JSON (no markdown fences):
+{"questions": [{"question": "<question text>", "type": "<behavioral|technical|situational|motivational>"}]}`;
+
+      let questions: Array<{ question: string; type: string }> = [];
+      try {
+        const qRes = await anthropicClient.messages.create({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 800,
+          messages: [{ role: 'user', content: questionsPrompt }],
+        });
+        const qText = qRes.content[0].type === 'text' ? qRes.content[0].text : '';
+        const qClean = qText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
+        const parsed = JSON.parse(qClean);
+        questions = parsed.questions ?? [];
+      } catch {
+        questions = [
+          { question: 'Tell me about yourself and your background.', type: 'motivational' },
+          { question: `Why are you interested in ${appCompany}?`, type: 'motivational' },
+          { question: 'Describe a challenging project you worked on.', type: 'behavioral' },
+          { question: 'Where do you see yourself in 5 years?', type: 'situational' },
+          { question: 'What are your greatest strengths?', type: 'situational' },
+        ];
+      }
+
+      const totalQuestions = questions.length;
+      const safeIndex = Math.max(0, Math.min(questionIndex, totalQuestions - 1));
+      const currentQuestion = questions[safeIndex]?.question ?? 'Tell me about yourself.';
+      const isLastQuestion = safeIndex >= totalQuestions - 1;
+
+      if (!userAnswer) {
+        return {
+          company: appCompany,
+          questionIndex: safeIndex,
+          question: currentQuestion,
+          totalQuestions,
+          isLastQuestion,
+        };
+      }
+
+      // Evaluate the user's answer
+      const evalPrompt = `You are an interview coach. Evaluate this interview answer.
+
+Question: ${currentQuestion}
+Company: ${appCompany}
+Role: ${appRole}
+Candidate's Answer: ${userAnswer}
+
+Evaluate on: relevance, specificity, use of concrete examples, conciseness.
+Return JSON (no markdown fences):
+{
+  "score": "<strong|good|needs_work>",
+  "feedback": "<2-3 sentence overall feedback>",
+  "suggestions": ["<improvement suggestion 1>", "<improvement suggestion 2>"]
+}`;
+
+      let evaluation: PracticeEvaluation | undefined;
+      try {
+        const evalRes = await anthropicClient.messages.create({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 500,
+          messages: [{ role: 'user', content: evalPrompt }],
+        });
+        const evalText = evalRes.content[0].type === 'text' ? evalRes.content[0].text : '';
+        const evalClean = evalText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
+        const parsedEval = JSON.parse(evalClean);
+        evaluation = {
+          score: (parsedEval.score as 'strong' | 'good' | 'needs_work') ?? 'good',
+          feedback: parsedEval.feedback ?? '',
+          suggestions: parsedEval.suggestions ?? [],
+        };
+      } catch {
+        evaluation = {
+          score: 'good',
+          feedback:
+            'Good effort! Consider adding more specific examples to strengthen your answer.',
+          suggestions: [
+            'Use the STAR method (Situation, Task, Action, Result)',
+            'Add concrete metrics or outcomes to show impact',
+          ],
+        };
+      }
+
+      return {
+        company: appCompany,
+        questionIndex: safeIndex,
+        question: currentQuestion,
+        userAnswer,
+        evaluation,
+        totalQuestions,
+        isLastQuestion,
       };
     },
   });

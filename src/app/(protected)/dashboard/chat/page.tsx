@@ -13,6 +13,7 @@ import { QuickActionChips } from "@/components/chat/quick-action-chips";
 import { WelcomeCard } from "@/components/chat/welcome-card";
 import { useVoiceInput } from "@/hooks/use-voice-input";
 import { emitChatToolExecuted } from "@/lib/chat/chat-events";
+import { extractFlowContext } from "@/lib/chat/flow-context";
 
 type LastTool =
   | "searchJobs"
@@ -25,6 +26,8 @@ type LastTool =
   | "showResumePreview"
   | "showInterviewPrep"
   | "navigateTo"
+  | "draftFollowUpEmail"
+  | "practiceInterviewQuestion"
   | null;
 
 const KNOWN_TOOLS: LastTool[] = [
@@ -38,6 +41,8 @@ const KNOWN_TOOLS: LastTool[] = [
   "showResumePreview",
   "showInterviewPrep",
   "navigateTo",
+  "draftFollowUpEmail",
+  "practiceInterviewQuestion",
 ];
 
 function getLastTool(messages: ReturnType<typeof useChat>["messages"]): LastTool {
@@ -175,6 +180,7 @@ export default function ChatPage() {
   }, [mounted, searchParams, handleSend]);
 
   const lastTool = getLastTool(messages);
+  const flowContext = extractFlowContext(messages);
   const isEmpty = messages.length === 0;
 
   if (!mounted) return <div className="flex-1" />;
@@ -212,6 +218,7 @@ export default function ChatPage() {
       <div className="border-t bg-background pt-2">
         <QuickActionChips
           lastTool={lastTool}
+          flowContext={flowContext}
           onSelect={handleQuickAction}
           disabled={isLoading}
         />

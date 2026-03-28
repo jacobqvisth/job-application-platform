@@ -148,7 +148,7 @@ export function InterviewPrepInline({ data, onAppend }: Props) {
           className="text-xs text-[oklch(0.44_0.19_265)] hover:underline"
           onClick={() =>
             onAppend?.(
-              `Let's practice interview questions for ${data.company} — ask me mock questions`
+              `Let's practice interview questions for ${data.company}. Start with the first question.`
             )
           }
         >

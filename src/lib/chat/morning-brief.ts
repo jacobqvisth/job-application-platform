@@ -101,12 +101,12 @@ export async function getMorningBriefData(): Promise<MorningBriefData | null> {
   }
   if (staleApplications.length > 0) {
     suggestedActions.push({
-      label: `Follow up ${staleApplications[0].company}`,
-      message: `How should I follow up on my ${staleApplications[0].company} application for ${staleApplications[0].role}?`,
+      label: `Follow up on ${staleApplications[0].company}`,
+      message: `Draft a follow-up email for my ${staleApplications[0].company} application`,
     });
   }
   suggestedActions.push({
-    label: "Review new matches",
+    label: "Find new jobs",
     message: "Search for jobs matching my profile and preferences",
   });
 
