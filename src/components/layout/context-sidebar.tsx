@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChevronRight, ChevronLeft, TrendingUp, Bell, BarChart3, Lightbulb, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { onChatToolExecuted } from "@/lib/chat/chat-events";
+import { trackInteraction } from "@/lib/chat/track-interaction";
 import type { ContextSidebarPayload } from "@/app/api/context-sidebar/route";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -14,6 +15,29 @@ const STATUS_COLORS: Record<string, string> = {
   interview: "bg-purple-100 text-purple-700",
   offer: "bg-green-100 text-green-700",
   rejected: "bg-red-100 text-red-700",
+};
+
+const STAGE_DOTS: Record<string, string> = {
+  exploring: "bg-blue-400",
+  actively_applying: "bg-green-500",
+  interviewing: "bg-purple-500",
+  negotiating: "bg-yellow-500",
+  stalled: "bg-orange-400",
+};
+
+const STAGE_LABELS: Record<string, string> = {
+  exploring: "Exploring",
+  actively_applying: "Actively applying",
+  interviewing: "Interviewing",
+  negotiating: "Negotiating",
+  stalled: "Stalled",
+};
+
+const INSIGHT_ICONS: Record<string, string> = {
+  trend: "📈",
+  pattern: "🔍",
+  recommendation: "💡",
+  milestone: "🎉",
 };
 
 const STATUS_ORDER = ["applied", "screening", "interview", "offer", "saved", "rejected"];
@@ -73,7 +97,14 @@ export function ContextSidebar() {
     router.push(`/dashboard/chat?ask=${encodeURIComponent(message)}`);
   };
 
-  const handleSuggestionClick = (action: string) => askNexus(action);
+  const handleSuggestionClick = (text: string, action: string) => {
+    trackInteraction({
+      interactionType: "suggestion_click",
+      actionText: text,
+      actionMessage: action,
+    });
+    askNexus(action);
+  };
   const handlePipelineClick = (status: string) =>
     askNexus(`Show me my ${status} applications`);
 
@@ -103,10 +134,18 @@ export function ContextSidebar() {
       {!collapsed && (
         <div className="flex flex-col h-full overflow-y-auto">
           {/* Header */}
-          <div className="flex h-14 items-center px-4 border-b border-border shrink-0">
+          <div className="flex h-14 items-center justify-between px-4 border-b border-border shrink-0">
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               Context
             </p>
+            {data?.stage && (
+              <div className="flex items-center gap-1.5">
+                <span className={cn("h-2 w-2 rounded-full shrink-0", STAGE_DOTS[data.stage] ?? "bg-muted")} />
+                <span className="text-[10px] text-muted-foreground font-medium">
+                  {STAGE_LABELS[data.stage] ?? data.stage}
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col gap-3 p-3 flex-1">
@@ -231,10 +270,29 @@ export function ContextSidebar() {
                       {data.suggestions[0].text}
                     </p>
                     <button
-                      onClick={() => handleSuggestionClick(data.suggestions[0].action)}
+                      onClick={() => handleSuggestionClick(data.suggestions[0].text, data.suggestions[0].action)}
                       className="text-xs font-medium text-[oklch(0.44_0.19_265)] hover:underline"
                     >
                       Ask Nexus →
+                    </button>
+                  </div>
+                )}
+
+                {/* Top Insight */}
+                {data?.topInsight && (
+                  <div className="rounded-lg border border-border bg-background p-3 space-y-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm">{INSIGHT_ICONS[data.topInsight.type] ?? "💡"}</span>
+                      <p className="text-xs font-semibold text-foreground">{data.topInsight.title}</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-snug pl-5">
+                      {data.topInsight.description}
+                    </p>
+                    <button
+                      onClick={() => handleSuggestionClick(data.topInsight!.title, "How's my job search going? What patterns do you notice?")}
+                      className="text-xs font-medium text-[oklch(0.44_0.19_265)] hover:underline pl-5"
+                    >
+                      See all insights →
                     </button>
                   </div>
                 )}

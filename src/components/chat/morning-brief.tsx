@@ -2,8 +2,17 @@
 
 import { Sparkles, TrendingUp, AlertCircle, BarChart3 } from "lucide-react";
 import type { MorningBriefData } from "@/lib/chat/morning-brief";
+import { trackInteraction } from "@/lib/chat/track-interaction";
 
-function getGreeting() {
+const INSIGHT_ICONS: Record<string, string> = {
+  trend: "📈",
+  pattern: "🔍",
+  recommendation: "💡",
+  milestone: "🎉",
+};
+
+function getGreeting(isStalled: boolean) {
+  if (isStalled) return "Welcome back";
   const h = new Date().getHours();
   if (h < 12) return "Good morning";
   if (h < 17) return "Good afternoon";
@@ -28,12 +37,22 @@ interface Props {
 }
 
 export function MorningBrief({ data, onSelect }: Props) {
-  const greeting = getGreeting();
+  const isStalled = data.stage === "stalled";
+  const greeting = getGreeting(isStalled);
   const nameText = data.userName ? `, ${data.userName.split(" ")[0]}` : "";
   const hasActivity =
     data.changedSince.length > 0 ||
     data.staleApplications.length > 0 ||
     data.interviewsUpcoming.length > 0;
+
+  const handleActionClick = (action: { label: string; message: string }) => {
+    trackInteraction({
+      interactionType: "morning_brief_action",
+      actionText: action.label,
+      actionMessage: action.message,
+    });
+    onSelect(action.message);
+  };
 
   return (
     <div className="flex flex-col items-center justify-center py-6 px-4 space-y-5 max-w-lg mx-auto">
@@ -45,7 +64,7 @@ export function MorningBrief({ data, onSelect }: Props) {
         <h2 className="text-lg font-semibold tracking-tight" suppressHydrationWarning>
           {greeting}{nameText}.
         </h2>
-        <p className="text-sm text-muted-foreground">Here&apos;s what&apos;s new since you were last here.</p>
+        <p className="text-sm text-muted-foreground">{data.stageMessage}</p>
       </div>
 
       <div className="w-full space-y-3">
@@ -123,6 +142,21 @@ export function MorningBrief({ data, onSelect }: Props) {
           </div>
         </div>
 
+        {/* Insights section (top 1-2) */}
+        {data.insights.length > 0 && (
+          <div className="rounded-lg border border-border bg-card px-4 py-3 space-y-1.5">
+            {data.insights.map((insight, i) => (
+              <div key={i} className="flex items-start gap-2">
+                <span className="text-sm shrink-0">{INSIGHT_ICONS[insight.type] ?? "💡"}</span>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-foreground">{insight.title}</p>
+                  <p className="text-xs text-muted-foreground leading-snug">{insight.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* What would you like to tackle? */}
         <div className="space-y-2">
           <p className="text-xs text-muted-foreground font-medium text-center">
@@ -133,7 +167,7 @@ export function MorningBrief({ data, onSelect }: Props) {
               <button
                 key={action.label}
                 className="flex items-center justify-between rounded-lg border bg-card px-3 py-2.5 text-left text-sm hover:bg-muted/50 transition-colors"
-                onClick={() => onSelect(action.message)}
+                onClick={() => handleActionClick(action)}
               >
                 <span className="text-xs">{action.message}</span>
                 <span className="text-xs font-medium text-[oklch(0.44_0.19_265)] shrink-0 ml-2">
@@ -145,7 +179,7 @@ export function MorningBrief({ data, onSelect }: Props) {
         </div>
       </div>
 
-      {!hasActivity && (
+      {!hasActivity && !isStalled && (
         <p className="text-sm text-muted-foreground text-center">
           Nothing new since your last visit. What would you like to work on?
         </p>

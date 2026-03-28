@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { generateSuggestions } from "@/lib/chat/suggestions";
+import { detectJobSearchStage, type JobSearchStage } from "@/lib/chat/stage-detection";
+import { detectPatterns } from "@/lib/chat/pattern-detection";
 
 export interface PipelineSummary {
   saved: number;
@@ -33,6 +35,8 @@ export interface ContextSidebarPayload {
   recentActivity: RecentActivityItem[];
   stats: SidebarWeeklyStats;
   suggestions: Array<{ text: string; action: string; priority: number }>;
+  stage: JobSearchStage;
+  topInsight?: { title: string; description: string; type: string };
 }
 
 function relativeTime(dateStr: string): string {
@@ -124,6 +128,13 @@ export async function GET() {
   const responseRate =
     totalApplied > 0 ? Math.round((totalResponded / totalApplied) * 100) : null;
 
+  // Detect stage and top insight
+  const stageContext = detectJobSearchStage(allApps);
+  const patterns = detectPatterns(allApps, []);
+  const topInsight = patterns[0]
+    ? { title: patterns[0].title, description: patterns[0].description, type: patterns[0].type }
+    : undefined;
+
   // Generate suggestions
   const appSummaries = allApps.map((a) => ({
     id: a.id,
@@ -138,6 +149,7 @@ export async function GET() {
     applications: appSummaries,
     weeklyStats: { appsSubmitted: appliedThisWeek, responseRate },
     savedSearches: [],
+    stage: stageContext.stage,
   });
 
   const payload: ContextSidebarPayload = {
@@ -145,6 +157,8 @@ export async function GET() {
     recentActivity,
     stats: { appliedThisWeek, responsesThisWeek, responseRate },
     suggestions,
+    stage: stageContext.stage,
+    topInsight,
   };
 
   return NextResponse.json(payload);

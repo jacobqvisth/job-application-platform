@@ -103,3 +103,21 @@ Phase 10c: Job discovery improvements, saved search management, and push notific
 - **Migration applied:** None — flow state lives in conversation history and system prompt, no new DB tables.
 - **Test result:** 78/78 E2E tests passed against production (`https://job-application-platform-lake.vercel.app`).
 - **Next step:** Phase 10d: Job discovery improvements — saved search management, match scoring, and push notifications for new matches.
+
+## Phase 10e — Adaptive Intelligence & Search Insights
+
+**Date:** 2026-03-28
+
+- **What was built:**
+  - Stage detection engine (`src/lib/chat/stage-detection.ts`): Deterministic algorithm that classifies users into 5 stages (exploring/actively_applying/interviewing/negotiating/stalled) from application data; drives personalization throughout the system.
+  - Pattern detection engine (`src/lib/chat/pattern-detection.ts`): 7 pattern types (response rate trend, application velocity, stage distribution, stale alerts, success patterns, milestones, weekly momentum) — surfaces actionable insights with `SearchInsight` objects.
+  - `getSearchInsights` tool (Tool 13): Calls `fetchInsightsData` + stage detection + pattern detection, returns `SearchInsightsResult` with stage badge, insights list, and summary; rendered by new `SearchInsightsCard` component with stage-colored badge, insight rows with icons/metrics, and "Take action" buttons.
+  - Interaction tracking: `chat_interactions` DB table (migration `010_chat_interactions.sql`), client-side `trackInteraction()` utility (fire-and-forget fetch), API route `POST/GET /api/chat/interactions`; tracking wired into `QuickActionChips`, `ContextSidebar` suggestion clicks, and `MorningBrief` action buttons; server-side tool invocation tracking in `onFinish` callback of `streamText`.
+  - Stage-aware morning brief: `MorningBriefData` now includes `stage`, `stageMessage`, and top 2 insights; component shows personalized subtitle, insight cards before action buttons, and "Welcome back" greeting for stalled users.
+  - Stage-aware suggestions engine: 5 stage branches with distinct priority hierarchies (exploring→job search, interviewing→prep, negotiating→offers, stalled→re-engagement) plus interaction-based deprioritization for overused action prefixes.
+  - Stage context in system prompt: `buildSystemPrompt` now accepts optional `StageContext` and injects a `## Job Search Stage` section with current stage, reason, rate, and stage-specific tone guidance.
+  - Context sidebar enhancements: stage dot indicator in header, `topInsight` card below suggestions; API route now computes stage + top insight.
+- **Files changed:** 7 new files, 11 modified files; migration `010_chat_interactions.sql` created (apply via Supabase MCP).
+- **Migration applied:** `010_chat_interactions.sql` — created but not yet applied; apply via Supabase MCP before deploying.
+- **Test result:** TypeScript compilation ✓ clean; E2E tests not re-run locally (run against prod after deploy).
+- **Next step:** Apply migration `010_chat_interactions.sql` via Supabase MCP, deploy with `vercel --prod --yes`, run E2E test suite against production.

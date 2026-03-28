@@ -16,7 +16,11 @@ import type {
   EmailDraftData,
   PracticeQuestionData,
   PracticeEvaluation,
+  SearchInsightsResult,
 } from './types';
+import { fetchInsightsData } from './insights-data';
+import { detectJobSearchStage } from './stage-detection';
+import { detectPatterns } from './pattern-detection';
 
 // ─── Tool 1: Search Jobs ────────────────────────────────────────────────────
 
@@ -1120,6 +1124,62 @@ Return JSON (no markdown fences):
         evaluation,
         totalQuestions,
         isLastQuestion,
+      };
+    },
+  });
+}
+
+// ─── Tool 13: Get Search Insights ───────────────────────────────────────────
+
+export function getSearchInsightsTool(userId: string) {
+  return tool({
+    description:
+      'Surface patterns, trends, and recommendations from the user\'s job search data. Use when asked about search progress, trends, insights, "how\'s my search going", or when the user wants to understand their patterns.',
+    inputSchema: zodSchema(
+      z.object({
+        focus: z
+          .enum(['trends', 'patterns', 'recommendations', 'all'])
+          .optional()
+          .default('all')
+          .describe('Which type of insights to surface'),
+      })
+    ),
+    execute: async ({ focus }: { focus?: 'trends' | 'patterns' | 'recommendations' | 'all' }): Promise<SearchInsightsResult> => {
+      const { applications, interactions } = await fetchInsightsData(userId);
+
+      const stageContext = detectJobSearchStage(applications);
+      let insights = detectPatterns(applications, interactions);
+
+      // Filter by focus if specified
+      if (focus && focus !== 'all') {
+        const focusMap: Record<string, string[]> = {
+          trends: ['trend'],
+          patterns: ['pattern'],
+          recommendations: ['recommendation', 'milestone'],
+        };
+        const allowed = focusMap[focus] ?? [];
+        insights = insights.filter((i) => allowed.includes(i.type));
+      }
+
+      const stageLabels: Record<string, string> = {
+        exploring: 'exploring opportunities',
+        actively_applying: 'actively applying',
+        interviewing: 'in the interview stage',
+        negotiating: 'in offer negotiation',
+        stalled: 'in a lull',
+      };
+
+      const summary = `User is ${stageLabels[stageContext.stage] ?? stageContext.stage}. ${stageContext.reason}. Weekly rate: ${stageContext.weeklyApplicationRate.toFixed(1)}/week.`;
+
+      return {
+        stage: {
+          current: stageContext.stage,
+          reason: stageContext.reason,
+          daysSinceLastActivity: stageContext.daysSinceLastActivity,
+          weeklyRate: stageContext.weeklyApplicationRate,
+        },
+        insights,
+        summary,
       };
     },
   });

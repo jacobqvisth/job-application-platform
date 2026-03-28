@@ -170,6 +170,22 @@ export interface NavigateData {
   description: string;
 }
 
+// ─── Phase 10e: Adaptive Intelligence types ─────────────────────────────────
+
+export type { JobSearchStage, StageContext } from './stage-detection';
+export type { SearchInsight } from './pattern-detection';
+
+export interface SearchInsightsResult {
+  stage: {
+    current: import('./stage-detection').JobSearchStage;
+    reason: string;
+    daysSinceLastActivity: number;
+    weeklyRate: number;
+  };
+  insights: import('./pattern-detection').SearchInsight[];
+  summary: string;
+}
+
 // ─── Phase 10c: Flow tools ──────────────────────────────────────────────────
 
 export interface EmailDraftData {

@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import { detectJobSearchStage, type JobSearchStage } from "./stage-detection";
+import { detectPatterns, type SearchInsight } from "./pattern-detection";
 
 export interface MorningBriefData {
   userName: string | null;
@@ -7,7 +9,18 @@ export interface MorningBriefData {
   interviewsUpcoming: Array<{ company: string; role: string }>;
   weekStats: { applied: number; responses: number; responseRate: number | null };
   suggestedActions: Array<{ label: string; message: string }>;
+  stage: JobSearchStage;
+  stageMessage: string;
+  insights: SearchInsight[];
 }
+
+const STAGE_MESSAGES: Record<JobSearchStage, string> = {
+  exploring: "You're exploring opportunities. Here's what's new in your search.",
+  actively_applying: "You're in an active application cycle — keep the momentum going.",
+  interviewing: "You have interviews in progress. Let's make sure you're prepared.",
+  negotiating: "Exciting — you have offers on the table. Let's make the best decision.",
+  stalled: "It's been a while since your last activity. Let's get things moving again.",
+};
 
 export async function getMorningBriefData(): Promise<MorningBriefData | null> {
   const supabase = await createClient();
@@ -37,6 +50,10 @@ export async function getMorningBriefData(): Promise<MorningBriefData | null> {
   const recentEvents = (eventsRes.data ?? []).filter((e) => userAppIds.has(e.application_id));
 
   const userName = user.user_metadata?.full_name ?? null;
+
+  // Detect stage and top insights
+  const stageContext = detectJobSearchStage(apps);
+  const insights = detectPatterns(apps, []).slice(0, 2);
 
   // Apps that changed status in last 24h
   const appMap = new Map(apps.map((a) => [a.id, a]));
@@ -90,25 +107,43 @@ export async function getMorningBriefData(): Promise<MorningBriefData | null> {
   const responseRate =
     totalApplied > 0 ? Math.round((totalResponded / totalApplied) * 100) : null;
 
-  // Contextual suggested actions
+  // Contextual suggested actions — stalled stage leads with "Find new jobs"
   const suggestedActions: Array<{ label: string; message: string }> = [];
-  if (interviewsUpcoming.length > 0) {
-    const interview = interviewsUpcoming[0];
+
+  if (stageContext.stage === "stalled") {
     suggestedActions.push({
-      label: `Prep for ${interview.company}`,
-      message: `Help me prepare for my interview at ${interview.company} for ${interview.role}`,
+      label: "Find new jobs",
+      message: "Search for jobs matching my profile and preferences",
+    });
+    if (staleApplications.length > 0) {
+      suggestedActions.push({
+        label: `Follow up on ${staleApplications[0].company}`,
+        message: `Draft a follow-up email for my ${staleApplications[0].company} application`,
+      });
+    }
+    suggestedActions.push({
+      label: "Review my search insights",
+      message: "How's my job search going? What patterns do you notice?",
+    });
+  } else {
+    if (interviewsUpcoming.length > 0) {
+      const interview = interviewsUpcoming[0];
+      suggestedActions.push({
+        label: `Prep for ${interview.company}`,
+        message: `Help me prepare for my interview at ${interview.company} for ${interview.role}`,
+      });
+    }
+    if (staleApplications.length > 0) {
+      suggestedActions.push({
+        label: `Follow up on ${staleApplications[0].company}`,
+        message: `Draft a follow-up email for my ${staleApplications[0].company} application`,
+      });
+    }
+    suggestedActions.push({
+      label: "Find new jobs",
+      message: "Search for jobs matching my profile and preferences",
     });
   }
-  if (staleApplications.length > 0) {
-    suggestedActions.push({
-      label: `Follow up on ${staleApplications[0].company}`,
-      message: `Draft a follow-up email for my ${staleApplications[0].company} application`,
-    });
-  }
-  suggestedActions.push({
-    label: "Find new jobs",
-    message: "Search for jobs matching my profile and preferences",
-  });
 
   return {
     userName,
@@ -117,5 +152,8 @@ export async function getMorningBriefData(): Promise<MorningBriefData | null> {
     interviewsUpcoming,
     weekStats: { applied: appliedThisWeek, responses: responsesThisWeek, responseRate },
     suggestedActions: suggestedActions.slice(0, 3),
+    stage: stageContext.stage,
+    stageMessage: STAGE_MESSAGES[stageContext.stage],
+    insights,
   };
 }

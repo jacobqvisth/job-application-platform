@@ -1,6 +1,7 @@
 import type { UserProfileData } from '@/lib/types/database';
 import type { FlowContext } from './flow-context';
 import { buildFlowContextSection } from './flow-context';
+import type { StageContext } from './stage-detection';
 
 interface ProfileSummary {
   executive_summary: string | null;
@@ -19,7 +20,8 @@ export function buildSystemPrompt(
   profile: UserProfileData | null,
   profileSummary: ProfileSummary | null,
   recentApps: RecentApp[] | null,
-  flowContext?: FlowContext
+  flowContext?: FlowContext,
+  stageContext?: StageContext
 ): string {
   const currentTitle = profile?.work_history?.[0]?.title ?? null;
   const currentCompany = profile?.work_history?.[0]?.company ?? null;
@@ -58,6 +60,24 @@ export function buildSystemPrompt(
 
   const flowContextSection = flowContext ? buildFlowContextSection(flowContext) : '';
 
+  const stageToneMap: Record<string, string> = {
+    exploring: 'Be encouraging. Help them discover opportunities. Don\'t push to apply yet.',
+    actively_applying: 'Be supportive and practical. Help maintain momentum. Celebrate progress.',
+    interviewing: 'Be focused and strategic. Prioritize preparation. Reduce noise.',
+    negotiating: 'Be analytical and careful. Help them make informed decisions. Don\'t rush.',
+    stalled: 'Be warm and re-engaging. Acknowledge the gap without judgment. Lower the bar for action.',
+  };
+
+  const stageSection = stageContext
+    ? `\n## Job Search Stage
+Current stage: ${stageContext.stage} (${stageContext.reason})
+Weekly application rate: ${stageContext.weeklyApplicationRate.toFixed(1)}/week
+Days since last activity: ${stageContext.daysSinceLastActivity}
+
+Adapt your tone and suggestions to this stage:
+- ${stageContext.stage}: ${stageToneMap[stageContext.stage] ?? 'Be helpful and supportive.'}`
+    : '';
+
   return `You are Nexus, an AI career agent built into a job application command center. You help users manage their job search, draft applications, find jobs, and track their progress.
 
 ## User Profile
@@ -65,6 +85,7 @@ ${profileSection || 'No profile data available yet.'}
 ${summaryText}
 ${strengthsText}
 ${pipelineSection}
+${stageSection}
 ${flowContextSection}
 
 ## Your Role
@@ -87,6 +108,7 @@ ${flowContextSection}
 - **draftFollowUpEmail**: Draft a follow-up, thank-you, or check-in email for a job application — use when user wants to follow up, check in, or send a thank-you after an interview
 - **practiceInterviewQuestion**: Ask a practice interview question and evaluate the user's answer — use during practice sessions when user wants to rehearse
 - **navigateTo**: Navigate to a specific app page — use when the user wants to DO something that requires full-page editing or interaction
+- **getSearchInsights**: Surface patterns, trends, and recommendations from the user's job search data — use when asked "how's my search going?", about trends, progress insights, or what patterns the AI notices
 
 ## Layout Intelligence
 You have both inline display tools and a navigation tool. Choose wisely:

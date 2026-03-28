@@ -16,6 +16,7 @@ import { InterviewPrepInline } from "./interview-prep-inline";
 import { NavigateCard } from "./navigate-card";
 import { EmailDraftCard } from "./email-draft-card";
 import { PracticeQuestionCard } from "./practice-question-card";
+import { SearchInsightsCard } from "./search-insights-card";
 import type {
   SearchJobsResult,
   ApplicationStatusResult,
@@ -29,6 +30,7 @@ import type {
   NavigateData,
   EmailDraftData,
   PracticeQuestionData,
+  SearchInsightsResult,
 } from "@/lib/chat/types";
 
 const TOOL_LOADING_LABELS: Record<string, string> = {
@@ -44,6 +46,7 @@ const TOOL_LOADING_LABELS: Record<string, string> = {
   navigateTo: "Navigating...",
   draftFollowUpEmail: "Drafting your follow-up email...",
   practiceInterviewQuestion: "Preparing interview question...",
+  getSearchInsights: "Analyzing your search patterns...",
 };
 
 interface ChatMessageProps {
@@ -97,6 +100,8 @@ function ToolResult({
       return <EmailDraftCard data={result as EmailDraftData} onAppend={onAppend} />;
     case "practiceInterviewQuestion":
       return <PracticeQuestionCard data={result as PracticeQuestionData} onAppend={onAppend} />;
+    case "getSearchInsights":
+      return <SearchInsightsCard data={result as SearchInsightsResult} onAppend={onAppend} />;
     default:
       return null;
   }

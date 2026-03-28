@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Search, BarChart3, Briefcase, MessageSquare, FileText, Kanban, Mail } from "lucide-react";
 import type { FlowContext } from "@/lib/chat/flow-context";
+import { trackInteraction } from "@/lib/chat/track-interaction";
 
 type LastTool =
   | "searchJobs"
@@ -266,7 +267,14 @@ export function QuickActionChips({ lastTool, flowContext, onSelect, disabled }: 
           variant="outline"
           className="h-7 text-xs gap-1.5 rounded-full"
           disabled={disabled}
-          onClick={() => onSelect(chip.message)}
+          onClick={() => {
+            trackInteraction({
+              interactionType: "chip_click",
+              actionText: chip.label,
+              actionMessage: chip.message,
+            });
+            onSelect(chip.message);
+          }}
         >
           {chip.icon}
           {chip.label}

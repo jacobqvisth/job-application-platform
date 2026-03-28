@@ -14,9 +14,11 @@ import {
   navigateToTool,
   draftFollowUpEmailTool,
   practiceInterviewQuestionTool,
+  getSearchInsightsTool,
 } from '@/lib/chat/tools';
 import { buildSystemPrompt } from '@/lib/chat/system-prompt';
 import { extractFlowContext } from '@/lib/chat/flow-context';
+import { detectJobSearchStage } from '@/lib/chat/stage-detection';
 
 export const maxDuration = 60;
 
@@ -28,7 +30,7 @@ export async function POST(req: Request) {
 
   if (!user) return new Response('Unauthorized', { status: 401 });
 
-  const { messages } = await req.json();
+  const { messages, conversationId } = await req.json();
 
   // Fetch user context for system prompt
   const [profileRes, summaryRes, recentAppsRes] = await Promise.all([
@@ -40,11 +42,15 @@ export async function POST(req: Request) {
       .single(),
     supabase
       .from('applications')
-      .select('id, company, role, status, updated_at')
+      .select('id, company, role, status, updated_at, applied_at')
       .eq('user_id', user.id)
       .order('updated_at', { ascending: false })
-      .limit(10),
+      .limit(50),
   ]);
+
+  // Detect job search stage from application data (no extra DB query — uses recentAppsRes)
+  const allApps = recentAppsRes.data ?? [];
+  const stageContext = detectJobSearchStage(allApps);
 
   // Extract flow context from conversation history for system prompt injection
   const flowContext = extractFlowContext(messages ?? []);
@@ -52,8 +58,9 @@ export async function POST(req: Request) {
   const systemPrompt = buildSystemPrompt(
     profileRes.data,
     summaryRes.data,
-    recentAppsRes.data,
-    flowContext
+    allApps.slice(0, 10),
+    flowContext,
+    stageContext
   );
 
   const tools = {
@@ -69,6 +76,7 @@ export async function POST(req: Request) {
     navigateTo: navigateToTool(),
     draftFollowUpEmail: draftFollowUpEmailTool(user.id),
     practiceInterviewQuestion: practiceInterviewQuestionTool(user.id),
+    getSearchInsights: getSearchInsightsTool(user.id),
   };
 
   // Convert UIMessages to ModelMessages for streamText
@@ -80,6 +88,24 @@ export async function POST(req: Request) {
     messages: modelMessages,
     tools,
     stopWhen: stepCountIs(8),
+    onFinish: async ({ toolResults }) => {
+      // Track tool invocations server-side (fire-and-forget)
+      if (toolResults && toolResults.length > 0) {
+        try {
+          const rows = toolResults.map((t) => ({
+            user_id: user.id,
+            conversation_id: conversationId ?? null,
+            interaction_type: 'tool_invocation',
+            tool_name: t.toolName,
+            metadata: {},
+          }));
+          // Non-blocking insert (fire and forget)
+          void supabase.from('chat_interactions').insert(rows);
+        } catch {
+          // Silently fail — tracking is non-critical
+        }
+      }
+    },
   });
 
   return result.toUIMessageStreamResponse();
