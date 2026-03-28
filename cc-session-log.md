@@ -86,3 +86,20 @@ Phase 10c: Job discovery improvements, saved search management, and push notific
 - **Migration applied:** None.
 - **Test result:** 78/78 passed against production (`https://job-application-platform-lake.vercel.app`).
 - **Next step:** Phase 10c: Job discovery improvements, saved search management, and push notifications for new matches.
+
+## Phase 10c — Smart Flows & Multi-Step Conversations
+
+**Date:** 2026-03-28
+
+- **What was built:**
+  - Flow context system (`src/lib/chat/flow-context.ts`): `extractFlowContext()` walks conversation history to detect active flow (discovery/interview_prep/weekly_review/email_followup) and injects a `## Recent Conversation Context` section into the system prompt on every request.
+  - `draftFollowUpEmail` tool (Tool 11): Haiku-powered email drafting (follow_up/thank_you/check_in types) with inline `EmailDraftCard` component (copy to clipboard, inline subject editing, Open in Gmail link).
+  - `practiceInterviewQuestion` tool (Tool 12): Haiku-powered Q&A practice loop with `PracticeQuestionCard` (question mode → answer → evaluation with score/feedback/suggestions → Next/Try Again/End).
+  - System prompt updated with 4-flow orchestration guide (Discovery→Apply, Interview Prep, Weekly Review, Email Follow-Up), general flow rules, and step limit raised 5→8.
+  - Flow-aware `QuickActionChips`: chips now respond to `activeFlow + lastTool` combination, giving contextual actions at each step of every flow.
+  - Morning brief stale-app action updated to trigger `draftFollowUpEmail` flow directly.
+  - `ApplicationBoardInline` card clicks and `InterviewPrepInline` "Practice with me" button send richer context messages.
+- **Files changed:** `src/lib/chat/flow-context.ts` (new), `src/components/chat/email-draft-card.tsx` (new), `src/components/chat/practice-question-card.tsx` (new), `src/lib/chat/types.ts`, `src/lib/chat/system-prompt.ts`, `src/lib/chat/tools.ts`, `src/lib/chat/morning-brief.ts`, `src/app/api/chat/route.ts`, `src/components/chat/chat-message.tsx`, `src/components/chat/quick-action-chips.tsx`, `src/components/chat/application-board-inline.tsx`, `src/components/chat/interview-prep-inline.tsx`, `src/app/(protected)/dashboard/chat/page.tsx`.
+- **Migration applied:** None — flow state lives in conversation history and system prompt, no new DB tables.
+- **Test result:** 78/78 E2E tests passed against production (`https://job-application-platform-lake.vercel.app`).
+- **Next step:** Phase 10d: Job discovery improvements — saved search management, match scoring, and push notifications for new matches.
