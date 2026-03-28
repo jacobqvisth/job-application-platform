@@ -7,6 +7,8 @@ import type { KnowledgeItem } from '@/lib/data/knowledge'
  */
 export async function getRelevantKnowledgeContext(
   userId: string,
+  // Reserved for future relevance filtering — kept in public API for callers
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   jobDescription: string | null
 ): Promise<string> {
   const supabase = await createClient()

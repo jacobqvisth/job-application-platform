@@ -4,6 +4,7 @@ import { useRef, useEffect, useState, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Send, Pause, LogOut } from 'lucide-react'
+import { toast } from 'sonner'
 import { VoiceInputButton } from '@/components/knowledge/voice-input-button'
 import { respondToInterviewAction } from '@/app/(protected)/dashboard/knowledge/interview/actions'
 import { cn } from '@/lib/utils'
@@ -93,6 +94,10 @@ export function InterviewChat({
       setShouldContinue(result.shouldContinueTopic)
     } catch (error) {
       console.error('Failed to send message:', error)
+      // Remove optimistic user message on failure so the user can retry
+      setMessages(prev => prev.slice(0, -1))
+      setInputValue(sentText)
+      toast.error('Failed to send message. Please try again.')
     } finally {
       setIsLoading(false)
     }

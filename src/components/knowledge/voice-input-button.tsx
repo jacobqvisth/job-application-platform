@@ -11,16 +11,21 @@ interface VoiceInputButtonProps {
 }
 
 export function VoiceInputButton({ onTranscript, disabled }: VoiceInputButtonProps) {
-  const [isSupported, setIsSupported] = useState(false)
+  // Lazy initializer avoids calling setState in an effect (satisfies react-hooks/set-state-in-effect)
+  const [isSupported] = useState(
+    () => typeof window !== 'undefined' && !!(window.SpeechRecognition || window.webkitSpeechRecognition)
+  )
   const { isListening, transcript, startListening, stopListening, resetTranscript } = useVoiceInput()
   const prevListeningRef = useRef(false)
 
-  useEffect(() => {
-    setIsSupported(
-      typeof window !== 'undefined' &&
-      !!(window.SpeechRecognition || window.webkitSpeechRecognition)
-    )
-  }, [])
+  // Hooks must be declared unconditionally — before any early return
+  const handleToggle = useCallback(() => {
+    if (isListening) {
+      stopListening()
+    } else {
+      startListening()
+    }
+  }, [isListening, startListening, stopListening])
 
   // Fire onTranscript when listening stops with a non-empty transcript
   useEffect(() => {
@@ -32,14 +37,6 @@ export function VoiceInputButton({ onTranscript, disabled }: VoiceInputButtonPro
   }, [isListening, transcript, onTranscript, resetTranscript])
 
   if (!isSupported) return null
-
-  const handleToggle = useCallback(() => {
-    if (isListening) {
-      stopListening()
-    } else {
-      startListening()
-    }
-  }, [isListening, startListening, stopListening])
 
   return (
     <Button

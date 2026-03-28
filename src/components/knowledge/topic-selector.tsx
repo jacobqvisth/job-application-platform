@@ -92,7 +92,6 @@ export function TopicSelector({
         <div className="grid gap-2">
           {topics.map(topic => {
             const status = getTopicStatus(topic.key);
-            const coverage = getTopicCoverage(topic);
             const isSuggested = suggestedTopics.find(t => t.key === topic.key);
 
             return (

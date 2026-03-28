@@ -3,7 +3,6 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import {
   getKnowledgeCategoryCounts,
-  getKnowledgeProfileSummary,
   INTERVIEW_TOPICS,
 } from '@/lib/data/knowledge'
 import { InterviewPageClient } from './interview-page-client'
