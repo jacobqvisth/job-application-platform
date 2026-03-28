@@ -17,6 +17,7 @@ import { NavigateCard } from "./navigate-card";
 import { EmailDraftCard } from "./email-draft-card";
 import { PracticeQuestionCard } from "./practice-question-card";
 import { SearchInsightsCard } from "./search-insights-card";
+import { LinkedInShareCard } from "./linkedin-share-card";
 import type {
   SearchJobsResult,
   ApplicationStatusResult,
@@ -31,6 +32,7 @@ import type {
   EmailDraftData,
   PracticeQuestionData,
   SearchInsightsResult,
+  LinkedInShareData,
 } from "@/lib/chat/types";
 
 const TOOL_LOADING_LABELS: Record<string, string> = {
@@ -47,6 +49,7 @@ const TOOL_LOADING_LABELS: Record<string, string> = {
   draftFollowUpEmail: "Drafting your follow-up email...",
   practiceInterviewQuestion: "Preparing interview question...",
   getSearchInsights: "Analyzing your search patterns...",
+  shareOnLinkedIn: "Preparing your LinkedIn post...",
 };
 
 interface ChatMessageProps {
@@ -102,6 +105,8 @@ function ToolResult({
       return <PracticeQuestionCard data={result as PracticeQuestionData} onAppend={onAppend} />;
     case "getSearchInsights":
       return <SearchInsightsCard data={result as SearchInsightsResult} onAppend={onAppend} />;
+    case "shareOnLinkedIn":
+      return <LinkedInShareCard data={result as LinkedInShareData} />;
     default:
       return null;
   }

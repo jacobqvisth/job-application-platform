@@ -5,6 +5,7 @@ import { Application, ApplicationStatus, ApplicationWithEvents } from "@/lib/typ
 import { KanbanBoard } from "@/components/applications/kanban-board";
 import { AddApplicationDialog } from "@/components/applications/add-application-dialog";
 import { ApplicationDetail } from "@/components/applications/application-detail";
+import { LinkedInShareButton } from "@/components/share/linkedin-share-button";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { updateApplicationAction } from "@/app/(protected)/dashboard/actions/application-actions";
@@ -13,21 +14,31 @@ import { toast } from "sonner";
 
 interface ApplicationsPageClientProps {
   initialApplications: Application[];
+  linkedInConnected: boolean;
 }
 
 export function ApplicationsPageClient({
   initialApplications,
+  linkedInConnected,
 }: ApplicationsPageClientProps) {
   const [applications, setApplications] = useState(initialApplications);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [selectedApp, setSelectedApp] = useState<ApplicationWithEvents | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [pendingShare, setPendingShare] = useState<{
+    company: string;
+    role: string;
+    status: "interview" | "offer";
+  } | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const handleStatusChange = (id: string, status: ApplicationStatus) => {
+    const app = applications.find((a) => a.id === id);
+
     // Optimistic update
     setApplications((prev) =>
-      prev.map((app) => (app.id === id ? { ...app, status } : app))
+      prev.map((a) => (a.id === id ? { ...a, status } : a))
     );
 
     startTransition(async () => {
@@ -38,6 +49,11 @@ export function ApplicationsPageClient({
         toast.error("Failed to update status");
       } else {
         toast.success("Status updated");
+        // Prompt to share on LinkedIn for milestone statuses
+        if (app && (status === "interview" || status === "offer")) {
+          setPendingShare({ company: app.company, role: app.role, status });
+          setShareOpen(true);
+        }
       }
     });
   };
@@ -63,10 +79,15 @@ export function ApplicationsPageClient({
   const handleDetailClose = (open: boolean) => {
     setDetailOpen(open);
     if (!open) {
-      // Refresh data by refetching
       setSelectedApp(null);
     }
   };
+
+  const shareText = pendingShare
+    ? pendingShare.status === "interview"
+      ? `Excited to share that I've been invited for an interview at ${pendingShare.company} for the ${pendingShare.role} position! 🎉 #jobsearch #career`
+      : `Thrilled to announce that I've received an offer from ${pendingShare.company}! 🎊 #newjob #career`
+    : "";
 
   return (
     <div className="space-y-4">
@@ -99,6 +120,19 @@ export function ApplicationsPageClient({
         open={detailOpen}
         onOpenChange={handleDetailClose}
       />
+
+      {/* LinkedIn share dialog — triggered when status changes to interview/offer */}
+      {pendingShare && (
+        <LinkedInShareButton
+          defaultText={shareText}
+          isConnected={linkedInConnected}
+          open={shareOpen}
+          onOpenChange={(open) => {
+            setShareOpen(open);
+            if (!open) setPendingShare(null);
+          }}
+        />
+      )}
     </div>
   );
 }

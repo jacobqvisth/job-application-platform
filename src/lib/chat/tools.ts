@@ -17,6 +17,7 @@ import type {
   PracticeQuestionData,
   PracticeEvaluation,
   SearchInsightsResult,
+  LinkedInShareData,
 } from './types';
 import { fetchInsightsData } from './insights-data';
 import { detectJobSearchStage } from './stage-detection';
@@ -1180,6 +1181,37 @@ export function getSearchInsightsTool(userId: string) {
         },
         insights,
         summary,
+      };
+    },
+  });
+}
+
+// ─── Tool 14: Share on LinkedIn ──────────────────────────────────────────────
+
+export function shareOnLinkedInTool(userId: string) {
+  return tool({
+    description:
+      'Show an inline LinkedIn share card when the user has a celebration-worthy milestone (interview invite, job offer, significant achievement). NEVER use for rejections, withdrawals, or negative events. Always show a pre-filled post the user can edit before sharing.',
+    inputSchema: zodSchema(
+      z.object({
+        text: z.string().describe('Pre-filled post text for the user to review and edit before sharing. Should be celebratory, authentic, and include relevant hashtags.'),
+        occasion: z.string().describe('Brief description of the occasion (e.g., "interview invite at Klarna", "job offer from Stripe")'),
+      })
+    ),
+    execute: async ({ text, occasion }: { text: string; occasion: string }): Promise<LinkedInShareData> => {
+      const supabase = await createClient();
+
+      // Check if user has a LinkedIn connection
+      const { data: connection } = await supabase
+        .from('linkedin_connections')
+        .select('id')
+        .eq('user_id', userId)
+        .single();
+
+      return {
+        text,
+        occasion,
+        isConnected: !!connection,
       };
     },
   });

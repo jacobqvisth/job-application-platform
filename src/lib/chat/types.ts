@@ -215,3 +215,11 @@ export interface PracticeQuestionData {
   totalQuestions: number;
   isLastQuestion: boolean;
 }
+
+// ─── Phase 11c: LinkedIn Share ──────────────────────────────────────────────
+
+export interface LinkedInShareData {
+  text: string;
+  occasion: string;
+  isConnected: boolean;
+}

@@ -8,6 +8,8 @@ import { Separator } from "@/components/ui/separator";
 import { Mail, Bot, LogOut } from "lucide-react";
 import { SignOutButton } from "./sign-out-button";
 import { GmailConnectionCard } from "@/components/settings/gmail-connection";
+import { LinkedInConnectionCard } from "@/components/settings/linkedin-connection";
+import type { LinkedInConnection } from "@/lib/types/database";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -24,9 +26,18 @@ export default async function SettingsPage() {
     .join("")
     .toUpperCase();
 
-  const gmailConnection = user
-    ? await getGmailConnection(supabase, user.id)
-    : null;
+  const [gmailConnection, linkedInResult] = await Promise.all([
+    user ? getGmailConnection(supabase, user.id) : Promise.resolve(null),
+    user
+      ? supabase
+          .from("linkedin_connections")
+          .select("*")
+          .eq("user_id", user.id)
+          .single()
+      : Promise.resolve({ data: null }),
+  ]);
+
+  const linkedInConnection = (linkedInResult.data as LinkedInConnection | null) ?? null;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -40,7 +51,7 @@ export default async function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Profile</CardTitle>
-          <CardDescription>Your account information from Google</CardDescription>
+          <CardDescription>Your account information</CardDescription>
         </CardHeader>
         <CardContent className="flex items-center gap-4">
           <Avatar className="h-16 w-16">
@@ -69,15 +80,9 @@ export default async function SettingsPage() {
             <GmailConnectionCard connection={gmailConnection} />
           </Suspense>
           <Separator />
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">LinkedIn</p>
-              <p className="text-xs text-muted-foreground">
-                Import applications and track connections
-              </p>
-            </div>
-            <Badge variant="secondary">Coming Soon</Badge>
-          </div>
+          <Suspense fallback={<div className="text-sm text-muted-foreground">Loading...</div>}>
+            <LinkedInConnectionCard connection={linkedInConnection} />
+          </Suspense>
         </CardContent>
       </Card>
 

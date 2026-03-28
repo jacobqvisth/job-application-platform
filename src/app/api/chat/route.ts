@@ -15,6 +15,7 @@ import {
   draftFollowUpEmailTool,
   practiceInterviewQuestionTool,
   getSearchInsightsTool,
+  shareOnLinkedInTool,
 } from '@/lib/chat/tools';
 import { buildSystemPrompt } from '@/lib/chat/system-prompt';
 import { extractFlowContext } from '@/lib/chat/flow-context';
@@ -77,6 +78,7 @@ export async function POST(req: Request) {
     draftFollowUpEmail: draftFollowUpEmailTool(user.id),
     practiceInterviewQuestion: practiceInterviewQuestionTool(user.id),
     getSearchInsights: getSearchInsightsTool(user.id),
+    shareOnLinkedIn: shareOnLinkedInTool(user.id),
   };
 
   // Convert UIMessages to ModelMessages for streamText
