@@ -13,6 +13,8 @@
     "test:e2e:report": "npx playwright show-report"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.64",
+    "@ai-sdk/react": "^3.0.143",
     "@anthropic-ai/sdk": "^0.80.0",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
@@ -20,6 +22,7 @@
     "@react-pdf/renderer": "^4.3.2",
     "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.100.0",
+    "ai": "^6.0.141",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "docx": "^9.6.1",
@@ -34,6 +37,7 @@
     "radix-ui": "^1.4.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "react-markdown": "^10.1.0",
     "shadcn": "^4.1.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",

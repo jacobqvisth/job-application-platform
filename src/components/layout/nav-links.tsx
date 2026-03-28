@@ -18,12 +18,14 @@ import {
   Brain,
   UploadCloud,
   MessageCircle,
+  MessageSquare,
 } from "lucide-react";
 
 const NAV_SECTIONS = [
   {
     label: "GENERAL",
     items: [
+      { href: "/dashboard/chat", label: "Chat", icon: MessageSquare },
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/dashboard/applications", label: "Applications", icon: Briefcase },
       { href: "/dashboard/review", label: "Weekly Review", icon: BarChart3 },
