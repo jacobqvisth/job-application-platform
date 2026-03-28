@@ -121,3 +121,15 @@ Phase 10c: Job discovery improvements, saved search management, and push notific
 - **Migration applied:** `010_chat_interactions.sql` — created but not yet applied; apply via Supabase MCP before deploying.
 - **Test result:** TypeScript compilation ✓ clean; E2E tests not re-run locally (run against prod after deploy).
 - **Next step:** Apply migration `010_chat_interactions.sql` via Supabase MCP, deploy with `vercel --prod --yes`, run E2E test suite against production.
+
+---
+
+## Phase 11a — Enhanced LinkedIn Extension
+
+**Date:** 2026-03-28
+
+- **What was built:** Complete rewrite of `extension/content-linkedin.js` into a first-class job capture tool — ShadowDOM mini sidebar (280px, collapsible) on `/jobs/view/` pages with job metadata display (title, company, location, salary, remote type, Easy Apply badge), match score (skill overlap with profile), Quick Notes textarea, Open Draft Wizard / Save to Tracker buttons, and auth status indicator; per-card "💾 Save" hover buttons on `/jobs/search/` and `/jobs/collections/` pages with efficient MutationObserver for infinite scroll; Easy Apply completion detection via MutationObserver that auto-saves with `status: 'applied'` and shows a bottom-left toast; SPA navigation handling via MutationObserver + popstate + Navigation API with 300ms debounce; multiple fallback selectors for all fields (SELECTOR_VERSION constant tracks last update date).
+- **Files changed:** `extension/content-linkedin.js` (complete rewrite, ~340 lines); `src/app/api/extension/save-job/route.ts` (accept optional `status` and `notes` fields, `status` passed to DB insert with `'saved'` default).
+- **Migration applied:** None — no schema changes required.
+- **Test result:** TypeScript compiled cleanly (`✓ Compiled successfully`); build fails only on pre-existing Supabase env var prerender error (unrelated); lint errors are all pre-existing in other files; extension changes are JS-only and don't affect Next.js build.
+- **Next step:** Deploy with `vercel --prod --yes`, run E2E tests against production, then load the extension in Chrome and manually test on a LinkedIn job page.

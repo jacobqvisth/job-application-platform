@@ -26,6 +26,8 @@ export async function POST(request: NextRequest) {
     location?: string;
     description?: string;
     ats_type?: 'workday' | 'greenhouse' | 'lever' | 'linkedin' | 'unknown';
+    status?: 'saved' | 'applied' | 'interviewing' | 'offered' | 'rejected';
+    notes?: string;
   };
 
   try {
@@ -63,9 +65,10 @@ export async function POST(request: NextRequest) {
       company: body.company,
       role: body.title,
       url: body.url,
-      status: 'saved',
+      status: body.status ?? 'saved',
       job_description: body.description ?? null,
       location: body.location ?? null,
+      ...(body.notes ? { notes: body.notes } : {}),
     })
     .select('id')
     .single();
