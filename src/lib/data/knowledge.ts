@@ -61,6 +61,140 @@ export interface KnowledgeProfileSummary {
   last_generated_at: string | null
 }
 
+// ─── Interview Session Types ─────────────────────────────
+
+export interface InterviewMessage {
+  role: 'ai' | 'user'
+  content: string
+  timestamp: string
+}
+
+export interface InterviewSession {
+  id: string
+  user_id: string
+  topic: string
+  topic_label: string | null
+  status: 'in_progress' | 'completed' | 'paused'
+  messages: InterviewMessage[]
+  extracted_item_ids: string[]
+  summary: string | null
+  question_count: number
+  created_at: string
+  updated_at: string
+}
+
+// ─── Interview Topic Configuration ───────────────────────
+
+export interface InterviewTopic {
+  key: string
+  label: string
+  description: string
+  icon: string
+  relatedCategories: KnowledgeCategory[]
+}
+
+export const INTERVIEW_TOPICS: InterviewTopic[] = [
+  {
+    key: 'career_narrative',
+    label: 'Your Career Story',
+    description: 'Walk through your career journey — transitions, motivations, and key moments',
+    icon: '🧭',
+    relatedCategories: ['fact', 'value', 'philosophy'],
+  },
+  {
+    key: 'strengths',
+    label: 'Strengths & Superpowers',
+    description: 'What you\'re best at, what colleagues come to you for',
+    icon: '💪',
+    relatedCategories: ['skill', 'self_assessment'],
+  },
+  {
+    key: 'behavioral_stories',
+    label: 'Your Best Stories',
+    description: 'Specific examples of leadership, conflict, innovation, and collaboration',
+    icon: '📖',
+    relatedCategories: ['story', 'achievement'],
+  },
+  {
+    key: 'technical_skills',
+    label: 'Technical Deep-Dive',
+    description: 'Technologies, tools, and methodologies you\'re experienced with',
+    icon: '🔧',
+    relatedCategories: ['skill'],
+  },
+  {
+    key: 'leadership',
+    label: 'Leadership & Management',
+    description: 'How you think about building and leading teams',
+    icon: '👥',
+    relatedCategories: ['philosophy', 'story', 'value'],
+  },
+  {
+    key: 'role_preferences',
+    label: 'What You\'re Looking For',
+    description: 'Your ideal role, company, culture, and dealbreakers',
+    icon: '🎯',
+    relatedCategories: ['preference'],
+  },
+  {
+    key: 'compensation',
+    label: 'Compensation & Dealbreakers',
+    description: 'Salary expectations, benefits priorities, and non-negotiables',
+    icon: '💰',
+    relatedCategories: ['preference'],
+  },
+  {
+    key: 'growth',
+    label: 'Growth & Development',
+    description: 'What you\'re working to improve and where you want to grow',
+    icon: '🌱',
+    relatedCategories: ['self_assessment', 'preference'],
+  },
+  {
+    key: 'work_philosophy',
+    label: 'How You Work',
+    description: 'Your working style, problem-solving approach, and values',
+    icon: '🧠',
+    relatedCategories: ['philosophy', 'value'],
+  },
+]
+
+// ─── Interview Session Queries ───────────────────────────
+
+export async function getInterviewSessions(userId: string) {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('interview_sessions')
+    .select('*')
+    .eq('user_id', userId)
+    .order('updated_at', { ascending: false })
+  return (data ?? []) as InterviewSession[]
+}
+
+export async function getInterviewSession(sessionId: string, userId: string) {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('interview_sessions')
+    .select('*')
+    .eq('id', sessionId)
+    .eq('user_id', userId)
+    .single()
+  return data as InterviewSession | null
+}
+
+export async function getActiveSession(userId: string) {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('interview_sessions')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('status', 'in_progress')
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .single()
+  return data as InterviewSession | null
+}
+
 // ─── Queries ─────────────────────────────────────────────
 
 export async function getKnowledgeItems(

@@ -7,6 +7,7 @@ import {
   getUploadedDocuments,
   getPendingReviewItems,
   getKnowledgeItems,
+  getKnowledgeProfileSummary,
   KnowledgeCategory,
   ConfidenceLevel,
 } from '@/lib/data/knowledge'
@@ -24,6 +25,7 @@ import {
   BrainIcon,
 } from 'lucide-react'
 import { AddKnowledgeItemDialog } from '@/components/knowledge/add-knowledge-item-dialog'
+import { ProfileSummaryCard } from '@/components/knowledge/profile-summary-card'
 
 export const metadata: Metadata = {
   title: 'Knowledge Base | Job Platform',
@@ -58,7 +60,7 @@ export default async function KnowledgePage({
   const params = await searchParams
   const userId = authData.user.id
 
-  const [counts, documents, pendingItems, allItems] = await Promise.all([
+  const [counts, documents, pendingItems, allItems, profileSummary] = await Promise.all([
     getKnowledgeCategoryCounts(userId),
     getUploadedDocuments(userId),
     getPendingReviewItems(userId),
@@ -68,6 +70,7 @@ export default async function KnowledgePage({
       isActive: true,
       search: params.search,
     }),
+    getKnowledgeProfileSummary(userId),
   ])
 
   const recentDocs = documents.slice(0, 5)
@@ -98,6 +101,9 @@ export default async function KnowledgePage({
         </AddKnowledgeItemDialog>
       </div>
 
+      {/* Profile Summary */}
+      <ProfileSummaryCard summary={profileSummary} />
+
       {/* Completeness */}
       <Card>
         <CardHeader className="pb-3">
@@ -125,11 +131,12 @@ export default async function KnowledgePage({
                 Upload Documents
               </Button>
             </Link>
-            <Button variant="outline" disabled className="gap-2 opacity-60 cursor-not-allowed">
-              <MicIcon className="h-4 w-4" />
-              Start Interview
-              <span className="text-xs text-muted-foreground">(Phase 9b)</span>
-            </Button>
+            <Link href="/dashboard/knowledge/interview">
+              <Button variant="outline" className="gap-2">
+                <MicIcon className="h-4 w-4" />
+                Start Interview
+              </Button>
+            </Link>
           </div>
         </CardContent>
       </Card>

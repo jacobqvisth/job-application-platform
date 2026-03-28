@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getUserProfile } from "@/lib/data/profile";
 import { getCanonicalQuestionsWithAnswers } from "@/lib/data/answer-library";
+import { getRelevantKnowledgeContext } from "@/lib/knowledge/get-relevant-knowledge";
 import { getResumeById } from "@/lib/data/resumes";
 import Anthropic from "@anthropic-ai/sdk";
 import type {
@@ -46,10 +47,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Load profile and library context in parallel
-  const [profile, canonicalQuestions] = await Promise.all([
+  // Load profile, library, and knowledge context in parallel
+  const [profile, canonicalQuestions, knowledgeContext] = await Promise.all([
     getUserProfile(user.id),
     getCanonicalQuestionsWithAnswers(user.id),
+    getRelevantKnowledgeContext(user.id, jobDescription),
   ]);
 
   // Build profile context string
@@ -142,6 +144,7 @@ ${
 ${profileContext}
 ${libraryContext}
 ${pinnedContext}
+${knowledgeContext}
 
 JOB DESCRIPTION:
 ${jobDescription.slice(0, 3000)}

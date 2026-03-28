@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import Anthropic from "@anthropic-ai/sdk";
 import type { UserProfileData, ExperienceItem, EducationItem, SkillCategory } from "@/lib/types/database";
+import { getRelevantKnowledgeContext } from "@/lib/knowledge/get-relevant-knowledge";
 
 const anthropic = new Anthropic();
 
@@ -32,6 +33,7 @@ export async function generatePrepPackAction(applicationId: string) {
 
   const profileContext = buildProfileContext(profile);
   const jobDesc = app.job_description?.trim() || "No job description provided.";
+  const knowledgeContext = await getRelevantKnowledgeContext(user.id, app.job_description);
 
   const systemPrompt = `You are an expert interview coach preparing a candidate for a job interview. Analyze the job description and the candidate's background, then generate a targeted interview prep pack. Return ONLY valid JSON — no markdown, no prose, no explanation. Just the JSON object.`;
 
@@ -42,6 +44,9 @@ ${profileContext}
 
 Job description:
 ${jobDesc}
+${knowledgeContext}
+
+When generating behavioral questions, reference the candidate's actual stories above for the star_prompt hints.
 
 Generate a JSON object with this exact structure:
 {
