@@ -42,3 +42,8 @@ TypeScript compiles clean (`✓ Compiled successfully`, `Finished TypeScript in 
 
 ### Next step
 Deploy to Vercel and run E2E suite against production to confirm all 78 tests pass (79 minus the 1 removed redundant test).
+
+## Phase 10a Fix 2 — React Hydration Error #418
+
+- **Fixed:** Added `mounted` state guard to `ChatPage` in `src/app/(protected)/dashboard/chat/page.tsx` — the component now returns `<div className="flex-1" />` on the server render, then hydrates with full UI on client, eliminating the React #418 hydration mismatch error.
+- **Test expectation:** E2E tests at `e2e/dashboard.spec.ts` lines 14 and 61 navigate to `/dashboard` (redirects to `/dashboard/chat`), wait for `networkidle`, and assert no console errors — these should now pass cleanly with all 78 tests green.

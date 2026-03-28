@@ -61,6 +61,7 @@ async function fetchWelcomeData() {
 }
 
 export default function ChatPage() {
+  const [mounted, setMounted] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState("");
   const [welcomeData, setWelcomeData] = useState<{
@@ -95,6 +96,9 @@ export default function ChatPage() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
+
+  // Mount guard — prevents server/client hydration mismatch (#418)
+  useEffect(() => setMounted(true), []);
 
   // Load welcome data on mount
   useEffect(() => {
@@ -137,6 +141,8 @@ export default function ChatPage() {
 
   const lastTool = getLastTool(messages);
   const isEmpty = messages.length === 0;
+
+  if (!mounted) return <div className="flex-1" />;
 
   return (
     <div className="flex flex-col h-[calc(100vh-3.5rem-2px)] max-h-full -m-4 md:-m-6">
