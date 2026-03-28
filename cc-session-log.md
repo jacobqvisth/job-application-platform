@@ -76,3 +76,13 @@ TypeScript compilation clean (`✓ Compiled successfully`, `Finished TypeScript`
 
 ### Next step
 Phase 10c: Job discovery improvements, saved search management, and push notifications for new matches.
+
+## Phase 10b Fix — E2E Auth Test Selector Update
+
+**Date:** 2026-03-28
+
+- **What was built:** Fixed 4 E2E test selectors broken by Phase 10b's replacement of the collapsible text sidebar with an icon-only nav rail.
+- **Files changed:** `e2e/auth.setup.ts` (line 45: `text=Dashboard` → `[title="Chat"]`), `e2e/dashboard.spec.ts` (line 19: same; line 40: `nav >> text=${link.text}` → `a[title="..."], button[title="..."]` to target actual link elements instead of opacity-0 tooltip spans), `e2e/knowledge.spec.ts` (removed `KNOWLEDGE` section label check and sub-nav link assertions that no longer exist directly in nav — `/upload` and `/interview` are now behind the "More" dropdown).
+- **Migration applied:** None.
+- **Test result:** 78/78 passed against production (`https://job-application-platform-lake.vercel.app`).
+- **Next step:** Phase 10c: Job discovery improvements, saved search management, and push notifications for new matches.

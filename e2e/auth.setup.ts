@@ -42,7 +42,7 @@ setup('authenticate', async ({ page, baseURL }) => {
   // Navigate to dashboard — auth cookies are now set
   await page.goto('/dashboard');
   await page.waitForURL('**/dashboard**', { timeout: 15_000 });
-  await expect(page.locator('text=Dashboard').first()).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator('[title="Chat"]').first()).toBeVisible({ timeout: 10_000 });
 
   await page.context().storageState({ path: STORAGE_STATE });
 });

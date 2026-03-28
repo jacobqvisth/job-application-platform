@@ -151,19 +151,15 @@ test.describe('Knowledge — Interview Page', () => {
 });
 
 test.describe('Knowledge — Navigation', () => {
-  test('sidebar has KNOWLEDGE section with all three links', async ({ page }) => {
+  test('nav rail has knowledge link', async ({ page }) => {
     await page.goto('/dashboard/knowledge');
     await page.waitForLoadState('networkidle');
 
     const nav = page.locator('nav');
 
-    // KNOWLEDGE section label
-    await expect(nav.locator('text=KNOWLEDGE').first()).toBeVisible();
-
-    // All three knowledge nav links
+    // Knowledge link is in the primary nav rail
     await expect(nav.locator('a[href="/dashboard/knowledge"]').first()).toBeVisible();
-    await expect(nav.locator('a[href="/dashboard/knowledge/upload"]').first()).toBeVisible();
-    await expect(nav.locator('a[href="/dashboard/knowledge/interview"]').first()).toBeVisible();
+    // Upload and interview are accessible via the "More" dropdown
   });
 
   test('Start Interview button navigates to interview page', async ({ page }) => {

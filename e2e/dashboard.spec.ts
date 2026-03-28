@@ -16,7 +16,7 @@ test.describe('Dashboard — Authenticated', () => {
     await page.goto('/dashboard');
     await page.waitForLoadState('networkidle');
 
-    await expect(page.locator('text=Dashboard').first()).toBeVisible();
+    await expect(page.locator('[title="Chat"]').first()).toBeVisible();
     const critical = errors.filter(e =>
       !e.includes('favicon') &&
       !e.includes('404') &&
@@ -37,7 +37,8 @@ test.describe('Dashboard — Authenticated', () => {
     ];
 
     for (const link of navLinks) {
-      const navItem = page.locator(`nav >> text=${link.text}`).first();
+      // Use title attribute to target actual link/button elements (not tooltip spans)
+      const navItem = page.locator(`a[title="${link.text}"], button[title="${link.text}"]`).first();
       if (await navItem.isVisible()) {
         await navItem.click();
         await page.waitForURL(`**${link.url}**`, { timeout: 10_000 });
