@@ -38,7 +38,7 @@ export function WelcomeCard({ data, onSelect }: Props) {
         <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[oklch(0.44_0.19_265)] to-[oklch(0.62_0.16_240)] mx-auto flex items-center justify-center shadow-md">
           <MessageSquare className="h-6 w-6 text-white" />
         </div>
-        <h2 className="text-xl font-semibold tracking-tight">
+        <h2 className="text-xl font-semibold tracking-tight" suppressHydrationWarning>
           {greeting}{nameText}.
         </h2>
         {data.activeApplications > 0 && (

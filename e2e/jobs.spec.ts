@@ -42,13 +42,6 @@ test.describe('Job Discovery', () => {
       expect(hasEmptyState || hasListings > 0).toBeTruthy();
     });
 
-    test('jobs page is linked from dashboard', async ({ page }) => {
-      await page.goto('/dashboard');
-      // Dashboard has a Find Jobs / Browse Jobs link
-      const jobsLink = page.getByRole('link', { name: /Find Jobs|Browse Jobs|Start Search/ }).first();
-      await expect(jobsLink).toBeVisible();
-    });
-
     test('nav contains Find Jobs link', async ({ page }) => {
       await page.goto('/dashboard');
       await expect(page.getByRole('link', { name: /Find Jobs|Jobs/ }).first()).toBeVisible();

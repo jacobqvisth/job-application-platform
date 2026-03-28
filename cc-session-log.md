@@ -28,3 +28,17 @@ Build passes cleanly (TypeScript + static generation). All 50 routes rendered. C
 
 ### Next step
 Phase 10b — Chat-first layout improvements, smart context flows, and adaptive quick actions based on user state.
+
+---
+
+## Phase 10a Fix — Hydration Error + Test Updates (2026-03-28)
+
+### What was fixed
+- Added `suppressHydrationWarning` to the greeting `<h2>` in `WelcomeCard` — `getGreeting()` uses `new Date().getHours()` which can differ between server and client timezones, causing React hydration error #418 on `/dashboard/chat`.
+- Removed the redundant `'jobs page is linked from dashboard'` test from `e2e/jobs.spec.ts` — the test navigated to `/dashboard` expecting a Find Jobs link in page content, but `/dashboard` now redirects to `/dashboard/chat` which has no such link. The `'nav contains Find Jobs link'` test immediately below already covers this (checks the sidebar nav).
+
+### Test result
+TypeScript compiles clean (`✓ Compiled successfully`, `Finished TypeScript in 8.1s`). Prerender failure during local build is pre-existing (Supabase env vars not set locally) — not related to these changes.
+
+### Next step
+Deploy to Vercel and run E2E suite against production to confirm all 78 tests pass (79 minus the 1 removed redundant test).
