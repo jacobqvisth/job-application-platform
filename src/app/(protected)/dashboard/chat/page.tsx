@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,7 @@ import { ChatMessage } from "@/components/chat/chat-message";
 import { QuickActionChips } from "@/components/chat/quick-action-chips";
 import { WelcomeCard } from "@/components/chat/welcome-card";
 import { useVoiceInput } from "@/hooks/use-voice-input";
+import { emitChatToolExecuted } from "@/lib/chat/chat-events";
 
 type LastTool =
   | "searchJobs"
@@ -19,6 +21,10 @@ type LastTool =
   | "getProfileSummary"
   | "getWeeklyStats"
   | "searchAnswerLibrary"
+  | "showApplicationBoard"
+  | "showResumePreview"
+  | "showInterviewPrep"
+  | "navigateTo"
   | null;
 
 const KNOWN_TOOLS: LastTool[] = [
@@ -28,6 +34,10 @@ const KNOWN_TOOLS: LastTool[] = [
   "getProfileSummary",
   "getWeeklyStats",
   "searchAnswerLibrary",
+  "showApplicationBoard",
+  "showResumePreview",
+  "showInterviewPrep",
+  "navigateTo",
 ];
 
 function getLastTool(messages: ReturnType<typeof useChat>["messages"]): LastTool {
@@ -71,6 +81,10 @@ export default function ChatPage() {
     movedForwardThisWeek: number;
   } | null>(null);
 
+  const searchParams = useSearchParams();
+  const askedRef = useRef(false);
+  const prevStatusRef = useRef<string>("ready");
+
   const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({ api: "/api/chat" }),
     onError: () => {
@@ -109,6 +123,14 @@ export default function ChatPage() {
     });
   }, []);
 
+  // Emit chat tool executed event when a response completes
+  useEffect(() => {
+    if (prevStatusRef.current !== "ready" && status === "ready" && messages.length > 0) {
+      emitChatToolExecuted();
+    }
+    prevStatusRef.current = status;
+  }, [status, messages.length]);
+
   const handleSend = useCallback(
     (text: string) => {
       if (!text.trim() || isLoading) return;
@@ -139,13 +161,26 @@ export default function ChatPage() {
     }
   };
 
+  // Auto-send message from ?ask= query param (from context sidebar "Ask Nexus")
+  useEffect(() => {
+    if (!mounted || askedRef.current) return;
+    const ask = searchParams.get("ask");
+    if (ask) {
+      askedRef.current = true;
+      // Clear the query param
+      window.history.replaceState({}, "", "/dashboard/chat");
+      // Small delay to ensure chat is ready
+      setTimeout(() => handleSend(ask), 50);
+    }
+  }, [mounted, searchParams, handleSend]);
+
   const lastTool = getLastTool(messages);
   const isEmpty = messages.length === 0;
 
   if (!mounted) return <div className="flex-1" />;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-3.5rem-2px)] max-h-full -m-4 md:-m-6">
+    <div className="flex flex-col h-full -m-4 md:-m-6">
       {/* Message area */}
       <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 space-y-4">
         {isEmpty && welcomeData !== null ? (
@@ -181,7 +216,7 @@ export default function ChatPage() {
           disabled={isLoading}
         />
 
-        <div className="px-4 md:px-6 pb-4 flex items-end gap-2">
+        <div className="px-4 md:px-6 pb-4 pb-safe flex items-end gap-2">
           <div className="flex-1">
             <Textarea
               value={input}

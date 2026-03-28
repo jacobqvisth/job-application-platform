@@ -10,6 +10,10 @@ import { ApplicationPackage } from "./application-package";
 import { ProfileSummaryCard } from "./profile-summary-card";
 import { WeeklyStatsCard } from "./weekly-stats-card";
 import { AnswerLibraryResults } from "./answer-library-results";
+import { ApplicationBoardInline } from "./application-board-inline";
+import { ResumePreviewInline } from "./resume-preview-inline";
+import { InterviewPrepInline } from "./interview-prep-inline";
+import { NavigateCard } from "./navigate-card";
 import type {
   SearchJobsResult,
   ApplicationStatusResult,
@@ -17,6 +21,10 @@ import type {
   ProfileSummaryData,
   WeeklyStatsResult,
   SearchAnswerLibraryResult,
+  ApplicationBoardData,
+  ResumePreviewData,
+  InterviewPrepData,
+  NavigateData,
 } from "@/lib/chat/types";
 
 const TOOL_LOADING_LABELS: Record<string, string> = {
@@ -26,6 +34,10 @@ const TOOL_LOADING_LABELS: Record<string, string> = {
   getProfileSummary: "Loading your profile...",
   getWeeklyStats: "Calculating your stats...",
   searchAnswerLibrary: "Searching answer library...",
+  showApplicationBoard: "Loading your application board...",
+  showResumePreview: "Loading your resume...",
+  showInterviewPrep: "Generating interview prep materials...",
+  navigateTo: "Navigating...",
 };
 
 interface ChatMessageProps {
@@ -67,6 +79,14 @@ function ToolResult({
       return <WeeklyStatsCard data={result as WeeklyStatsResult} />;
     case "searchAnswerLibrary":
       return <AnswerLibraryResults data={result as SearchAnswerLibraryResult} />;
+    case "showApplicationBoard":
+      return <ApplicationBoardInline data={result as ApplicationBoardData} onAppend={onAppend} />;
+    case "showResumePreview":
+      return <ResumePreviewInline data={result as ResumePreviewData} onAppend={onAppend} />;
+    case "showInterviewPrep":
+      return <InterviewPrepInline data={result as InterviewPrepData} onAppend={onAppend} />;
+    case "navigateTo":
+      return <NavigateCard data={result as NavigateData} />;
     default:
       return null;
   }

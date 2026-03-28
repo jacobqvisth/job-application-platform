@@ -102,3 +102,70 @@ export interface SearchAnswerLibraryResult {
   total: number;
   query: string;
 }
+
+// ─── Phase 10b: New inline tool types ──────────────────────────────────────
+
+export interface ApplicationForBoard {
+  id: string;
+  company: string;
+  role: string;
+  status: string;
+  updatedAt: string;
+  daysSinceUpdate: number;
+  location?: string | null;
+  remoteType?: string | null;
+}
+
+export interface ApplicationBoardData {
+  applications: ApplicationForBoard[];
+  groupedCounts: Record<string, number>;
+  totalCount: number;
+  groupBy: "status" | "company" | "date";
+}
+
+export interface ResumeExperience {
+  company: string;
+  role: string;
+  startDate: string;
+  endDate?: string | null;
+  bullets?: string[];
+}
+
+export interface ResumeSkillGroup {
+  category: string;
+  items: string[];
+}
+
+export interface ResumePreviewData {
+  resumeId?: string;
+  resumeName: string;
+  contactName?: string | null;
+  contactEmail?: string | null;
+  contactLocation?: string | null;
+  currentTitle?: string | null;
+  summary?: string | null;
+  topExperiences: ResumeExperience[];
+  skills: ResumeSkillGroup[];
+  resumeCount: number;
+}
+
+export interface InterviewQuestion {
+  question: string;
+  answerOutline: string;
+  type: string;
+}
+
+export interface InterviewPrepData {
+  company: string;
+  role: string;
+  applicationId?: string;
+  researchSummary: string;
+  questions: InterviewQuestion[];
+  keyTalkingPoints: string[];
+}
+
+export interface NavigateData {
+  url: string;
+  pageName: string;
+  description: string;
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Search, BarChart3, Briefcase, MessageSquare } from "lucide-react";
+import { Search, BarChart3, Briefcase, MessageSquare, FileText, Kanban } from "lucide-react";
 
 type LastTool =
   | "searchJobs"
@@ -10,6 +10,10 @@ type LastTool =
   | "getProfileSummary"
   | "getWeeklyStats"
   | "searchAnswerLibrary"
+  | "showApplicationBoard"
+  | "showResumePreview"
+  | "showInterviewPrep"
+  | "navigateTo"
   | null;
 
 interface Chip {
@@ -26,8 +30,8 @@ const DEFAULT_CHIPS: Chip[] = [
   },
   {
     label: "My applications",
-    message: "Show me the status of all my applications",
-    icon: <Briefcase className="h-3 w-3" />,
+    message: "Show me my application board",
+    icon: <Kanban className="h-3 w-3" />,
   },
   {
     label: "Weekly update",
@@ -51,8 +55,8 @@ const AFTER_JOBS_CHIPS: Chip[] = [
     message: "Let me refine my search criteria",
   },
   {
-    label: "Show my applications",
-    message: "Show me all my current applications",
+    label: "Show my board",
+    message: "Show me my application board",
   },
 ];
 
@@ -63,7 +67,7 @@ const AFTER_PACKAGE_CHIPS: Chip[] = [
   },
   {
     label: "View pipeline",
-    message: "Show me the status of all my applications",
+    message: "Show me my application board",
   },
   {
     label: "Check stats",
@@ -81,8 +85,61 @@ const AFTER_PROFILE_CHIPS: Chip[] = [
     message: "What knowledge topics should I focus on completing?",
   },
   {
-    label: "Draft application",
-    message: "Help me prepare an application for a role",
+    label: "View my resume",
+    message: "Show me my resume",
+    icon: <FileText className="h-3 w-3" />,
+  },
+];
+
+const AFTER_BOARD_CHIPS: Chip[] = [
+  {
+    label: "Prep for interview",
+    message: "Help me prepare for my next interview",
+    icon: <MessageSquare className="h-3 w-3" />,
+  },
+  {
+    label: "Weekly stats",
+    message: "Give me my weekly stats and progress report",
+    icon: <BarChart3 className="h-3 w-3" />,
+  },
+  {
+    label: "Find more jobs",
+    message: "Search for more jobs matching my profile",
+    icon: <Search className="h-3 w-3" />,
+  },
+];
+
+const AFTER_RESUME_CHIPS: Chip[] = [
+  {
+    label: "Tailor for a job",
+    message: "Tailor my resume for a specific job I'm applying to",
+  },
+  {
+    label: "Find jobs",
+    message: "Search for jobs matching my profile and skills",
+    icon: <Search className="h-3 w-3" />,
+  },
+  {
+    label: "My applications",
+    message: "Show me my application board",
+    icon: <Briefcase className="h-3 w-3" />,
+  },
+];
+
+const AFTER_PREP_CHIPS: Chip[] = [
+  {
+    label: "Practice questions",
+    message: "Ask me mock interview questions so I can practice",
+    icon: <MessageSquare className="h-3 w-3" />,
+  },
+  {
+    label: "Another company",
+    message: "Prep me for another interview",
+  },
+  {
+    label: "My applications",
+    message: "Show me my application board",
+    icon: <Briefcase className="h-3 w-3" />,
   },
 ];
 
@@ -94,6 +151,13 @@ function getChips(lastTool: LastTool): Chip[] {
       return AFTER_PACKAGE_CHIPS;
     case "getProfileSummary":
       return AFTER_PROFILE_CHIPS;
+    case "showApplicationBoard":
+    case "getApplicationStatus":
+      return AFTER_BOARD_CHIPS;
+    case "showResumePreview":
+      return AFTER_RESUME_CHIPS;
+    case "showInterviewPrep":
+      return AFTER_PREP_CHIPS;
     default:
       return DEFAULT_CHIPS;
   }

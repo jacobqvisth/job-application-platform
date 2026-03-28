@@ -9,6 +9,10 @@ import type {
   ProfileSummaryData,
   WeeklyStatsResult,
   SearchAnswerLibraryResult,
+  ApplicationBoardData,
+  ResumePreviewData,
+  InterviewPrepData,
+  NavigateData,
 } from './types';
 
 // ─── Tool 1: Search Jobs ────────────────────────────────────────────────────
@@ -479,6 +483,362 @@ export function searchAnswerLibraryTool(userId: string) {
       });
 
       return { answers, total: answers.length, query };
+    },
+  });
+}
+
+// ─── Tool 7: Show Application Board ────────────────────────────────────────
+
+export function showApplicationBoardTool(userId: string) {
+  return tool({
+    description:
+      'Show the application kanban board inline. Use when the user wants to see their applications board, kanban, pipeline overview, or manage applications visually.',
+    inputSchema: zodSchema(
+      z.object({
+        groupBy: z
+          .enum(['status', 'company', 'date'])
+          .optional()
+          .default('status')
+          .describe('How to group the applications'),
+      })
+    ),
+    execute: async ({ groupBy }: { groupBy?: 'status' | 'company' | 'date' }): Promise<ApplicationBoardData> => {
+      const supabase = await createClient();
+      const { data: apps } = await supabase
+        .from('applications')
+        .select('id, company, role, status, updated_at, location, remote_type')
+        .eq('user_id', userId)
+        .order('updated_at', { ascending: false });
+
+      const allApps = apps ?? [];
+      const groupedCounts: Record<string, number> = {};
+      const now = new Date();
+
+      for (const app of allApps) {
+        let key: string;
+        if (groupBy === 'company') {
+          key = app.company;
+        } else if (groupBy === 'date') {
+          key = new Date(app.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        } else {
+          key = app.status;
+        }
+        groupedCounts[key] = (groupedCounts[key] ?? 0) + 1;
+      }
+
+      const applications = allApps.map((a) => ({
+        id: a.id,
+        company: a.company,
+        role: a.role,
+        status: a.status,
+        updatedAt: a.updated_at,
+        daysSinceUpdate: Math.floor(
+          (now.getTime() - new Date(a.updated_at).getTime()) / (1000 * 60 * 60 * 24)
+        ),
+        location: a.location,
+        remoteType: a.remote_type,
+      }));
+
+      return {
+        applications,
+        groupedCounts,
+        totalCount: applications.length,
+        groupBy: groupBy ?? 'status',
+      };
+    },
+  });
+}
+
+// ─── Tool 8: Show Resume Preview ────────────────────────────────────────────
+
+export function showResumePreviewTool(userId: string) {
+  return tool({
+    description:
+      "Show a preview of the user's resume. Use when the user asks to see their resume, check their resume, or wants to review their resume content.",
+    inputSchema: zodSchema(
+      z.object({
+        resumeId: z.string().optional().describe('Specific resume ID (defaults to most recent)'),
+      })
+    ),
+    execute: async ({ resumeId }: { resumeId?: string }): Promise<ResumePreviewData> => {
+      const supabase = await createClient();
+
+      const [resumeRes, profileRes, countRes] = await Promise.all([
+        resumeId
+          ? supabase.from('resumes').select('id, name, content').eq('id', resumeId).eq('user_id', userId).single()
+          : supabase.from('resumes').select('id, name, content').eq('user_id', userId).order('updated_at', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('user_profile_data').select('work_history, skills, contact_info').eq('user_id', userId).single(),
+        supabase.from('resumes').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+      ]);
+
+      const resume = resumeRes.data;
+      const profile = profileRes.data;
+      const resumeCount = countRes.count ?? 0;
+
+      // Extract data from resume content (JSONB with sections array)
+      type SectionItem = Record<string, unknown>;
+      type ResumeSection = { type: string; items?: SectionItem[] };
+      const sections: ResumeSection[] = (resume?.content as { sections?: ResumeSection[] } | null)?.sections ?? [];
+
+      const summarySection = sections.find((s) => s.type === 'summary');
+      const summary = (summarySection?.items?.[0] as { text?: string } | undefined)?.text ?? null;
+
+      const expSection = sections.find((s) => s.type === 'experience');
+      const topExperiences = (expSection?.items ?? []).slice(0, 3).map((item) => {
+        const exp = item as {
+          company?: string; role?: string; startDate?: string; endDate?: string | null; bullets?: string[];
+        };
+        return {
+          company: exp.company ?? '',
+          role: exp.role ?? '',
+          startDate: exp.startDate ?? '',
+          endDate: exp.endDate ?? null,
+          bullets: (exp.bullets ?? []).slice(0, 2),
+        };
+      });
+
+      const skillsSection = sections.find((s) => s.type === 'skills');
+      const skills = (skillsSection?.items ?? []).map((item) => {
+        const s = item as { category?: string; skills?: string[] };
+        return { category: s.category ?? 'Skills', items: s.skills ?? [] };
+      });
+
+      // Fall back to profile data if resume content is sparse
+      const profileWork = (profile?.work_history as Array<{ title?: string; company?: string; startDate?: string; endDate?: string | null; bullets?: string[] }> | null) ?? [];
+      const profileSkills = (profile?.skills as Array<{ category?: string; skills?: string[] }> | null) ?? [];
+      const contactInfo = profile?.contact_info as Record<string, string> | null;
+
+      const finalExperiences = topExperiences.length > 0
+        ? topExperiences
+        : profileWork.slice(0, 3).map((w) => ({
+            company: w.company ?? '',
+            role: w.title ?? '',
+            startDate: w.startDate ?? '',
+            endDate: w.endDate ?? null,
+            bullets: (w.bullets ?? []).slice(0, 2),
+          }));
+
+      const finalSkills = skills.length > 0
+        ? skills
+        : profileSkills.map((g) => ({ category: g.category ?? 'Skills', items: g.skills ?? [] }));
+
+      const currentTitle = profileWork[0]?.title ?? null;
+
+      return {
+        resumeId: resume?.id,
+        resumeName: resume?.name ?? 'Resume',
+        contactName: contactInfo?.name ?? null,
+        contactEmail: contactInfo?.email ?? null,
+        contactLocation: contactInfo?.location ?? null,
+        currentTitle,
+        summary,
+        topExperiences: finalExperiences,
+        skills: finalSkills,
+        resumeCount,
+      };
+    },
+  });
+}
+
+// ─── Tool 9: Show Interview Prep ────────────────────────────────────────────
+
+export function showInterviewPrepTool(userId: string) {
+  return tool({
+    description:
+      'Show interview preparation materials for an application. Use when the user wants to prepare for an interview, asks about interview prep, or wants practice questions for a specific company.',
+    inputSchema: zodSchema(
+      z.object({
+        applicationId: z.string().optional().describe('Specific application ID'),
+        company: z.string().optional().describe('Company name to look up'),
+      })
+    ),
+    execute: async ({ applicationId, company }: { applicationId?: string; company?: string }): Promise<InterviewPrepData> => {
+      const supabase = await createClient();
+
+      // Find the application
+      let appQuery = supabase
+        .from('applications')
+        .select('id, company, role, job_description')
+        .eq('user_id', userId);
+
+      if (applicationId) {
+        appQuery = appQuery.eq('id', applicationId);
+      } else if (company) {
+        appQuery = appQuery.ilike('company', `%${company}%`);
+      } else {
+        appQuery = appQuery.in('status', ['interview', 'screening', 'applied']);
+      }
+
+      const { data: appData } = await appQuery.order('updated_at', { ascending: false }).limit(1).single();
+
+      const appCompany = appData?.company ?? company ?? 'the company';
+      const appRole = appData?.role ?? 'the role';
+      const jobDescription = appData?.job_description ?? '';
+
+      // Fetch user profile for personalization
+      const [profileRes, summaryRes] = await Promise.all([
+        supabase.from('user_profile_data').select('work_history, skills, summary').eq('user_id', userId).single(),
+        supabase.from('knowledge_profile_summary').select('executive_summary, key_strengths').eq('user_id', userId).single(),
+      ]);
+
+      const profile = profileRes.data;
+      const summary = summaryRes.data;
+
+      const workHistory = (profile?.work_history as Array<{ title?: string; company?: string }> | null) ?? [];
+      const skills = (profile?.skills as Array<{ skills?: string[] }> | null) ?? [];
+      const skillsList = skills.flatMap((c) => c.skills ?? []).slice(0, 15).join(', ');
+
+      const anthropicClient = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+
+      const prompt = `Generate interview preparation materials for a job interview.
+
+Company: ${appCompany}
+Role: ${appRole}
+${jobDescription ? `Job Description (excerpt):\n${jobDescription.slice(0, 1500)}` : ''}
+
+Candidate Profile:
+${summary?.executive_summary ? `Summary: ${summary.executive_summary}` : ''}
+${summary?.key_strengths?.length ? `Strengths: ${summary.key_strengths.join(', ')}` : ''}
+${skillsList ? `Skills: ${skillsList}` : ''}
+${workHistory.length > 0 ? `Recent experience: ${workHistory[0]?.title ?? ''} at ${workHistory[0]?.company ?? ''}` : ''}
+
+Generate a JSON response (no markdown fences) with this exact structure:
+{
+  "researchSummary": "<2-3 sentences about the company and what to highlight>",
+  "questions": [
+    {"question": "<interview question>", "answerOutline": "<key points to cover in 1-2 sentences>", "type": "<behavioral|technical|situational|motivational>"}
+  ],
+  "keyTalkingPoints": ["<talking point 1>", "<talking point 2>", "<talking point 3>", "<talking point 4>", "<talking point 5>"]
+}
+
+Generate exactly 5 likely interview questions tailored to this role.`;
+
+      let result: { researchSummary: string; questions: Array<{ question: string; answerOutline: string; type: string }>; keyTalkingPoints: string[] };
+
+      try {
+        const response = await anthropicClient.messages.create({
+          model: 'claude-sonnet-4-5-20250514',
+          max_tokens: 2000,
+          messages: [{ role: 'user', content: prompt }],
+        });
+        const text = response.content[0].type === 'text' ? response.content[0].text : '';
+        const clean = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
+        result = JSON.parse(clean);
+      } catch {
+        result = {
+          researchSummary: `${appCompany} is hiring for a ${appRole} role. Focus on demonstrating your relevant experience and enthusiasm for the company's mission.`,
+          questions: [
+            { question: 'Tell me about yourself and your background.', answerOutline: 'Highlight relevant experience and skills that match this role.', type: 'motivational' },
+            { question: `Why are you interested in ${appCompany}?`, answerOutline: 'Show research about the company and genuine enthusiasm.', type: 'motivational' },
+            { question: 'Describe a challenging project you worked on.', answerOutline: 'Use STAR method: situation, task, action, result.', type: 'behavioral' },
+            { question: 'Where do you see yourself in 5 years?', answerOutline: 'Align growth goals with the role and company trajectory.', type: 'situational' },
+            { question: 'What are your greatest strengths?', answerOutline: 'Pick 2-3 strengths with concrete examples.', type: 'situational' },
+          ],
+          keyTalkingPoints: ['Relevant experience', 'Problem-solving ability', 'Team collaboration', 'Growth mindset', 'Company alignment'],
+        };
+      }
+
+      return {
+        company: appCompany,
+        role: appRole,
+        applicationId: appData?.id,
+        researchSummary: result.researchSummary ?? '',
+        questions: result.questions ?? [],
+        keyTalkingPoints: result.keyTalkingPoints ?? [],
+      };
+    },
+  });
+}
+
+// ─── Tool 10: Navigate To ────────────────────────────────────────────────────
+
+const PAGE_MAP: Record<string, { url: string; pageName: string; description: string }> = {
+  applications: {
+    url: '/dashboard/applications',
+    pageName: 'Applications',
+    description: 'Kanban board — drag and drop applications between stages',
+  },
+  jobs: {
+    url: '/dashboard/jobs',
+    pageName: 'Jobs',
+    description: 'Browse and save job listings from your searches',
+  },
+  draft: {
+    url: '/dashboard/draft',
+    pageName: 'Draft Application',
+    description: 'Build a complete application package for a specific job',
+  },
+  answers: {
+    url: '/dashboard/answers',
+    pageName: 'Answer Library',
+    description: 'Browse and manage your canonical screening question answers',
+  },
+  knowledge: {
+    url: '/dashboard/knowledge',
+    pageName: 'Knowledge Overview',
+    description: 'Your professional knowledge profile and completeness',
+  },
+  resumes: {
+    url: '/dashboard/resumes',
+    pageName: 'Resumes',
+    description: 'Manage, edit, and export your resumes',
+  },
+  emails: {
+    url: '/dashboard/emails',
+    pageName: 'Emails',
+    description: 'Synced Gmail emails related to your applications',
+  },
+  profile: {
+    url: '/dashboard/profile',
+    pageName: 'Profile',
+    description: 'Edit your profile and import resume data',
+  },
+  review: {
+    url: '/dashboard/review',
+    pageName: 'Weekly Review',
+    description: 'Analytics and insights on your job search progress',
+  },
+  settings: {
+    url: '/dashboard/settings',
+    pageName: 'Settings',
+    description: 'App settings, integrations, and preferences',
+  },
+  extension: {
+    url: '/dashboard/extension',
+    pageName: 'Browser Extension',
+    description: 'Install and configure the browser autofill extension',
+  },
+};
+
+export function navigateToTool() {
+  return tool({
+    description:
+      'Navigate the user to a specific page in the app. Use when the user explicitly asks to go to a page, open something, or when a full-page view would be better than an inline component (e.g., for editing resumes, dragging kanban cards, or bulk operations).',
+    inputSchema: zodSchema(
+      z.object({
+        page: z
+          .enum(['applications', 'jobs', 'draft', 'answers', 'knowledge', 'resumes', 'emails', 'profile', 'review', 'settings', 'extension'])
+          .describe('Which page to navigate to'),
+        context: z.string().optional().describe('Additional context (e.g., application ID)'),
+      })
+    ),
+    execute: async ({ page, context }: { page: string; context?: string }): Promise<NavigateData> => {
+      const info = PAGE_MAP[page] ?? {
+        url: '/dashboard',
+        pageName: 'Dashboard',
+        description: 'Main dashboard',
+      };
+
+      // Append context if provided (e.g., application ID as path param)
+      const url = context && ['applications'].includes(page)
+        ? `${info.url}/${context}`
+        : info.url;
+
+      return {
+        url,
+        pageName: info.pageName,
+        description: info.description,
+      };
     },
   });
 }

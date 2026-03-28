@@ -47,3 +47,32 @@ Deploy to Vercel and run E2E suite against production to confirm all 78 tests pa
 
 - **Fixed:** Added `mounted` state guard to `ChatPage` in `src/app/(protected)/dashboard/chat/page.tsx` — the component now returns `<div className="flex-1" />` on the server render, then hydrates with full UI on client, eliminating the React #418 hydration mismatch error.
 - **Test expectation:** E2E tests at `e2e/dashboard.spec.ts` lines 14 and 61 navigate to `/dashboard` (redirects to `/dashboard/chat`), wait for `networkidle`, and assert no console errors — these should now pass cleanly with all 78 tests green.
+
+---
+
+## Phase 10b — Chat-First Layout, Smart Flows & Context Sidebar
+
+**Date:** 2026-03-28
+
+### What was built
+- **Three-panel layout**: Replaced `Sidebar` + `TopBar` with `NavRail` (w-16 icon-only nav with tooltips, user avatar+signout dropdown, "More" popover for secondary links) + `ContextSidebar` (w-72 right panel). Mobile gets a bottom tab bar. Updated `src/app/(protected)/layout.tsx` to the new 3-panel structure.
+- **ContextSidebar** (`src/components/layout/context-sidebar.tsx`): Shows pipeline counts (clickable → ask Nexus), recent activity, weekly stats, and a smart suggestion with "Ask Nexus →" button. Collapsible (localStorage), refreshes every 60s + on chat tool execution via `chat-events.ts`. Uses `GET /api/context-sidebar` for data.
+- **4 new chat tools**: `showApplicationBoard` (inline compact kanban, read-only), `showResumePreview` (inline resume with experience/skills), `showInterviewPrep` (uses Claude Sonnet, generates 5 questions + research summary + talking points), `navigateTo` (simple routing card). Added to `tools.ts`, registered in `api/chat/route.ts`, mapped in `chat-message.tsx`.
+- **Morning Brief**: When user has ≥1 application and returns after 8+ hours, `WelcomeCard` detects this via localStorage and shows `MorningBrief` component instead — personalized with recent status changes, stale apps, interview reminders, and contextual action buttons. Data from `GET /api/chat/morning-brief`.
+- **Smart suggestions engine** (`src/lib/chat/suggestions.ts`): Generates up to 3 prioritized suggestions (stale followup → interview prep → low velocity → response rate → incomplete profile) used by `ContextSidebar`.
+
+### Files changed
+- New: `src/components/layout/nav-rail.tsx`, `src/components/layout/context-sidebar.tsx`
+- New: `src/lib/chat/chat-events.ts`, `src/lib/chat/suggestions.ts`, `src/lib/chat/morning-brief.ts`
+- New: `src/app/api/context-sidebar/route.ts`, `src/app/api/chat/morning-brief/route.ts`
+- New: `src/components/chat/morning-brief.tsx`, `src/components/chat/application-board-inline.tsx`, `src/components/chat/resume-preview-inline.tsx`, `src/components/chat/interview-prep-inline.tsx`, `src/components/chat/navigate-card.tsx`
+- Modified: `src/app/(protected)/layout.tsx`, `src/app/(protected)/dashboard/chat/page.tsx`, `src/app/api/chat/route.ts`, `src/lib/chat/tools.ts`, `src/lib/chat/types.ts`, `src/lib/chat/system-prompt.ts`, `src/components/chat/chat-message.tsx`, `src/components/chat/welcome-card.tsx`, `src/components/chat/quick-action-chips.tsx`
+
+### Migration applied
+None — no DB schema changes in this phase.
+
+### Test result
+TypeScript compilation clean (`✓ Compiled successfully`, `Finished TypeScript` no errors). Pre-existing lint warnings only. Supabase prerender error at build-time is environment-only (no `.env.local`); build passes on Vercel where env vars are set.
+
+### Next step
+Phase 10c: Job discovery improvements, saved search management, and push notifications for new matches.

@@ -8,6 +8,10 @@ import {
   getProfileSummaryTool,
   getWeeklyStatsTool,
   searchAnswerLibraryTool,
+  showApplicationBoardTool,
+  showResumePreviewTool,
+  showInterviewPrepTool,
+  navigateToTool,
 } from '@/lib/chat/tools';
 import { buildSystemPrompt } from '@/lib/chat/system-prompt';
 
@@ -52,6 +56,10 @@ export async function POST(req: Request) {
     getProfileSummary: getProfileSummaryTool(user.id),
     getWeeklyStats: getWeeklyStatsTool(user.id),
     searchAnswerLibrary: searchAnswerLibraryTool(user.id),
+    showApplicationBoard: showApplicationBoardTool(user.id),
+    showResumePreview: showResumePreviewTool(user.id),
+    showInterviewPrep: showInterviewPrepTool(user.id),
+    navigateTo: navigateToTool(),
   };
 
   // Convert UIMessages to ModelMessages for streamText

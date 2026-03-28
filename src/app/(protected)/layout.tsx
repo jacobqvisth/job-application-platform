@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Sidebar } from "@/components/layout/sidebar";
-import { TopBar } from "@/components/layout/top-bar";
+import { NavRail } from "@/components/layout/nav-rail";
+import { ContextSidebar } from "@/components/layout/context-sidebar";
 
 export default async function ProtectedLayout({
   children,
@@ -18,16 +18,16 @@ export default async function ProtectedLayout({
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-muted/40">
-      <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <TopBar
-          email={user.email ?? ""}
-          fullName={user.user_metadata?.full_name ?? null}
-          avatarUrl={user.user_metadata?.avatar_url ?? null}
-        />
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
-      </div>
+    <div className="flex h-screen overflow-hidden bg-background">
+      <NavRail
+        email={user.email ?? ""}
+        fullName={user.user_metadata?.full_name ?? null}
+        avatarUrl={user.user_metadata?.avatar_url ?? null}
+      />
+      <main className="flex-1 overflow-y-auto min-w-0 pb-16 md:pb-0">
+        <div className="p-4 md:p-6 h-full">{children}</div>
+      </main>
+      <ContextSidebar />
     </div>
   );
 }

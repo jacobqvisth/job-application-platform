@@ -1,6 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Search, Briefcase, BarChart3, MessageSquare } from "lucide-react";
+import { MorningBrief } from "./morning-brief";
+import type { MorningBriefData } from "@/lib/chat/morning-brief";
+
+const LAST_VISIT_KEY = "nexus-last-visit";
+const MORNING_BRIEF_THRESHOLD_MS = 8 * 60 * 60 * 1000; // 8 hours
 
 interface WelcomeData {
   name?: string | null;
@@ -29,6 +35,47 @@ const SUGGESTIONS = [
 ];
 
 export function WelcomeCard({ data, onSelect }: Props) {
+  const [briefData, setBriefData] = useState<MorningBriefData | null>(null);
+  const [showBrief, setShowBrief] = useState(false);
+
+  useEffect(() => {
+    // Update last visit timestamp
+    const lastVisitStr = localStorage.getItem(LAST_VISIT_KEY);
+    const now = Date.now();
+    const lastVisit = lastVisitStr ? parseInt(lastVisitStr, 10) : 0;
+    const hoursSinceVisit = now - lastVisit;
+
+    // Show morning brief if: has applications AND been 8+ hours since last visit
+    const shouldShowBrief =
+      data.activeApplications > 0 && hoursSinceVisit > MORNING_BRIEF_THRESHOLD_MS;
+
+    if (shouldShowBrief) {
+      fetch("/api/chat/morning-brief")
+        .then((res) => (res.ok ? res.json() : null))
+        .then((briefJson: MorningBriefData | null) => {
+          if (briefJson) {
+            setBriefData(briefJson);
+            setShowBrief(true);
+          }
+        })
+        .catch(() => {
+          // Fall back to regular welcome card
+        });
+    }
+
+    // Update last visit
+    localStorage.setItem(LAST_VISIT_KEY, String(now));
+  }, [data.activeApplications]);
+
+  const handleSelect = (message: string) => {
+    setShowBrief(false);
+    onSelect(message);
+  };
+
+  if (showBrief && briefData) {
+    return <MorningBrief data={briefData} onSelect={handleSelect} />;
+  }
+
   const greeting = getGreeting();
   const nameText = data.name ? `, ${data.name.split(" ")[0]}` : "";
 
