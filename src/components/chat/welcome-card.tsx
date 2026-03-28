@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Search, Briefcase, BarChart3, MessageSquare } from "lucide-react";
+import { Search, Briefcase, BarChart3, MessageSquare, ChevronRight } from "lucide-react";
 import { MorningBrief } from "./morning-brief";
+import { ConversationList } from "./conversation-list";
 import type { MorningBriefData } from "@/lib/chat/morning-brief";
+import type { ConversationSummary } from "./conversation-list";
 
 const LAST_VISIT_KEY = "nexus-last-visit";
 const MORNING_BRIEF_THRESHOLD_MS = 8 * 60 * 60 * 1000; // 8 hours
@@ -17,7 +19,9 @@ interface WelcomeData {
 
 interface Props {
   data: WelcomeData;
+  conversations?: ConversationSummary[];
   onSelect: (message: string) => void;
+  onSelectConversation?: (id: string) => void;
 }
 
 function getGreeting() {
@@ -34,7 +38,9 @@ const SUGGESTIONS = [
   { icon: MessageSquare, label: "Help me prepare for an interview" },
 ];
 
-export function WelcomeCard({ data, onSelect }: Props) {
+const MAX_RECENT = 5;
+
+export function WelcomeCard({ data, conversations = [], onSelect, onSelectConversation }: Props) {
   const [briefData, setBriefData] = useState<MorningBriefData | null>(null);
   const [showBrief, setShowBrief] = useState(false);
 
@@ -78,6 +84,8 @@ export function WelcomeCard({ data, onSelect }: Props) {
 
   const greeting = getGreeting();
   const nameText = data.name ? `, ${data.name.split(" ")[0]}` : "";
+  const recentConversations = conversations.slice(0, MAX_RECENT);
+  const hasMore = conversations.length > MAX_RECENT;
 
   return (
     <div className="flex flex-col items-center justify-center py-8 px-4 text-center space-y-6 max-w-lg mx-auto">
@@ -126,6 +134,29 @@ export function WelcomeCard({ data, onSelect }: Props) {
           ))}
         </div>
       </div>
+
+      {/* Recent conversations */}
+      {recentConversations.length > 0 && onSelectConversation && (
+        <div className="w-full">
+          <ConversationList
+            conversations={recentConversations}
+            onSelect={onSelectConversation}
+            onNew={() => {/* already on welcome screen */}}
+          />
+          {hasMore && (
+            <button
+              className="mt-2 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mx-auto"
+              onClick={() => {
+                // Show full list — for now just show all inline
+                // Future: navigate to /dashboard/chat?list=1
+              }}
+            >
+              View all {conversations.length} conversations
+              <ChevronRight className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
