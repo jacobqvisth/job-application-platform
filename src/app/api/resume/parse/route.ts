@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { isLinkedInPdf, parseLinkedInPdf } from "@/lib/linkedin/parse-linkedin-pdf";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -34,13 +35,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Extract text from PDF using pdf-parse
+    // Extract text from PDF using pdf-parse (stay on v1.1.1)
     const buffer = Buffer.from(await file.arrayBuffer());
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    
     const pdfParse = require("pdf-parse");
     const pdfData = await pdfParse(buffer);
-    const extractedText = pdfData.text;
+    const extractedText: string = pdfData.text;
 
     if (!extractedText || extractedText.trim().length < 50) {
       return NextResponse.json(
@@ -49,7 +49,34 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Send to Claude for parsing
+    // -----------------------------------------------------------------------
+    // LinkedIn PDF path
+    // -----------------------------------------------------------------------
+    if (isLinkedInPdf(extractedText)) {
+      try {
+        const linkedInProfile = parseLinkedInPdf(extractedText);
+
+        // Fall back to Claude if the deterministic parser extracted almost nothing
+        const tooSparse =
+          linkedInProfile.experience.length < 2 &&
+          linkedInProfile.education.length < 1;
+
+        if (!tooSparse) {
+          return NextResponse.json({
+            success: true,
+            isLinkedIn: true,
+            linkedInProfile,
+          });
+        }
+        // else: fall through to Claude-based parsing below
+      } catch {
+        // Parsing exception — fall through to Claude
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Generic resume path (Claude)
+    // -----------------------------------------------------------------------
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
     const response = await anthropic.messages.create({
@@ -93,7 +120,6 @@ ${extractedText.slice(0, 8000)}`,
     // Parse the JSON response
     let parsed;
     try {
-      // Extract JSON from the response (in case Claude adds any text)
       const jsonMatch = content.text.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error("No JSON found in response");
       parsed = JSON.parse(jsonMatch[0]);
@@ -114,14 +140,10 @@ ${extractedText.slice(0, 8000)}`,
       languages: (parsed.languages ?? []).map(ensureId),
     };
 
-    return NextResponse.json({ success: true, profile });
+    return NextResponse.json({ success: true, isLinkedIn: false, profile });
   } catch (error) {
     console.error("Resume parse error:", error);
     const message = (error as Error).message || "Failed to parse resume";
-    // Return 400 for parsing/input errors, not 500
-    return NextResponse.json(
-      { error: message },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }

@@ -22,7 +22,22 @@ import {
   Loader2,
   Save,
   X,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
+
+function LinkedInIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+    </svg>
+  );
+}
 import { saveProfileAction } from "../actions/profile-actions";
 import type {
   UserProfileData,
@@ -34,6 +49,11 @@ import type {
   LanguageProficiency,
 } from "@/lib/types/database";
 import { Puzzle } from "lucide-react";
+import {
+  LinkedInImportDialog,
+  type ImportedProfileData,
+} from "@/components/profile/linkedin-import-dialog";
+import type { ParsedLinkedInProfile } from "@/lib/linkedin/types";
 
 interface ProfileFormProps {
   initialProfile: UserProfileData | null;
@@ -46,6 +66,11 @@ function newId() {
 export function ProfileForm({ initialProfile }: ProfileFormProps) {
   const [isPending, startTransition] = useTransition();
   const [uploading, setUploading] = useState(false);
+  const [linkedInUploading, setLinkedInUploading] = useState(false);
+  const [linkedInProfile, setLinkedInProfile] =
+    useState<ParsedLinkedInProfile | null>(null);
+  const [showLinkedInDialog, setShowLinkedInDialog] = useState(false);
+  const [showLinkedInGuide, setShowLinkedInGuide] = useState(false);
 
   // Contact details
   const [phone, setPhone] = useState(initialProfile?.phone ?? "");
@@ -78,6 +103,22 @@ export function ProfileForm({ initialProfile }: ProfileFormProps) {
   );
   const [skillInputs, setSkillInputs] = useState<Record<string, string>>({});
 
+  // Build a snapshot of current profile for the merge dialog
+  function currentProfileSnapshot(): UserProfileData | null {
+    if (!initialProfile && workHistory.length === 0 && education.length === 0) {
+      return null;
+    }
+    return {
+      ...(initialProfile ?? ({} as UserProfileData)),
+      summary,
+      work_history: workHistory,
+      education,
+      skills,
+      certifications,
+      languages,
+    };
+  }
+
   function handleSave() {
     startTransition(async () => {
       const result = await saveProfileAction({
@@ -103,6 +144,64 @@ export function ProfileForm({ initialProfile }: ProfileFormProps) {
     });
   }
 
+  // Called when the LinkedIn import dialog confirms the merged data
+  function handleLinkedInImport(data: ImportedProfileData) {
+    setSummary(data.summary);
+    setWorkHistory(data.work_history);
+    setEducation(data.education);
+    setSkills(data.skills);
+    setCertifications(data.certifications);
+    setLanguages(data.languages);
+    toast.success("LinkedIn data imported! Review and save your profile.");
+  }
+
+  // Upload handler for the dedicated LinkedIn section
+  async function handleLinkedInUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.name.endsWith(".pdf")) {
+      toast.error("Please select a PDF file");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("File must be under 5MB");
+      return;
+    }
+
+    setLinkedInUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/resume/parse", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+
+      if (!data.success) {
+        toast.error(data.error ?? "Failed to parse PDF");
+        return;
+      }
+
+      if (!data.isLinkedIn) {
+        toast.error(
+          "This doesn't appear to be a LinkedIn profile export. Try the resume upload below.",
+          { duration: 5000 }
+        );
+        return;
+      }
+
+      setLinkedInProfile(data.linkedInProfile);
+      setShowLinkedInDialog(true);
+    } catch {
+      toast.error("Failed to parse PDF");
+    } finally {
+      setLinkedInUploading(false);
+      e.target.value = "";
+    }
+  }
+
+  // Upload handler for the existing generic resume section
   async function handlePdfUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -131,6 +230,22 @@ export function ProfileForm({ initialProfile }: ProfileFormProps) {
         return;
       }
 
+      // LinkedIn PDF detected in the generic upload → suggest the LinkedIn flow
+      if (data.isLinkedIn) {
+        toast.info(
+          "This looks like a LinkedIn profile export. Use 'Import from LinkedIn' above for the best experience.",
+          { duration: 6000, action: {
+            label: "Import now",
+            onClick: () => {
+              setLinkedInProfile(data.linkedInProfile);
+              setShowLinkedInDialog(true);
+            },
+          }}
+        );
+        return;
+      }
+
+      // Regular resume: populate form directly (existing behaviour)
       const parsed = data.profile;
       if (parsed.summary) setSummary(parsed.summary);
       if (parsed.work_history?.length) setWorkHistory(parsed.work_history);
@@ -309,9 +424,20 @@ export function ProfileForm({ initialProfile }: ProfileFormProps) {
 
   return (
     <div className="space-y-6">
+      {/* LinkedIn import dialog */}
+      {linkedInProfile && (
+        <LinkedInImportDialog
+          open={showLinkedInDialog}
+          onOpenChange={setShowLinkedInDialog}
+          linkedInProfile={linkedInProfile}
+          currentProfile={currentProfileSnapshot()}
+          onImport={handleLinkedInImport}
+        />
+      )}
+
       {/* Save button */}
       <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={isPending || uploading}>
+        <Button onClick={handleSave} disabled={isPending || uploading || linkedInUploading}>
           {isPending ? (
             <Loader2 className="size-4 animate-spin" />
           ) : (
@@ -321,7 +447,81 @@ export function ProfileForm({ initialProfile }: ProfileFormProps) {
         </Button>
       </div>
 
-      {/* PDF Import */}
+      {/* Import from LinkedIn */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <LinkedInIcon className="size-4 text-[#0A66C2]" />
+            Import from LinkedIn
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Export your LinkedIn profile as PDF and upload it here to auto-fill
+            your profile.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {/* Step-by-step guide (collapsible) */}
+          <button
+            type="button"
+            onClick={() => setShowLinkedInGuide((v) => !v)}
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {showLinkedInGuide ? (
+              <ChevronUp className="size-3" />
+            ) : (
+              <ChevronDown className="size-3" />
+            )}
+            How to export your LinkedIn PDF
+          </button>
+
+          {showLinkedInGuide && (
+            <ol className="text-xs text-muted-foreground space-y-1 pl-4 list-decimal">
+              <li>Go to your LinkedIn profile page</li>
+              <li>
+                Click the <strong>More</strong> button (•••) near your profile
+                photo
+              </li>
+              <li>
+                Select <strong>Save to PDF</strong>
+              </li>
+              <li>Upload the downloaded PDF file below</li>
+            </ol>
+          )}
+
+          {/* LinkedIn PDF dropzone */}
+          <label
+            className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-[#0A66C2]/30 p-6 text-center transition-colors cursor-pointer hover:border-[#0A66C2]/60 hover:bg-[#0A66C2]/5 ${
+              linkedInUploading ? "opacity-50 pointer-events-none" : ""
+            }`}
+          >
+            <input
+              type="file"
+              accept=".pdf"
+              className="hidden"
+              onChange={handleLinkedInUpload}
+              disabled={linkedInUploading}
+            />
+            {linkedInUploading ? (
+              <>
+                <Loader2 className="mb-2 size-6 animate-spin text-[#0A66C2]" />
+                <p className="text-sm font-medium">Parsing LinkedIn PDF...</p>
+              </>
+            ) : (
+              <>
+                <LinkedInIcon className="mb-2 size-6 text-[#0A66C2]" />
+                <p className="text-sm font-medium">
+                  Drop your LinkedIn PDF here or click to browse
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  PDF only · max 5MB
+                </p>
+              </>
+            )}
+          </label>
+        </CardContent>
+      </Card>
+
+      {/* PDF Import (generic resume) */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Import from Resume (PDF)</CardTitle>
@@ -875,7 +1075,7 @@ export function ProfileForm({ initialProfile }: ProfileFormProps) {
 
       {/* Bottom save */}
       <div className="flex justify-end pb-6">
-        <Button onClick={handleSave} disabled={isPending || uploading}>
+        <Button onClick={handleSave} disabled={isPending || uploading || linkedInUploading}>
           {isPending ? (
             <Loader2 className="size-4 animate-spin" />
           ) : (

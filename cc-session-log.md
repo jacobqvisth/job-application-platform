@@ -121,3 +121,14 @@ Phase 10c: Job discovery improvements, saved search management, and push notific
 - **Migration applied:** `010_chat_interactions.sql` — created but not yet applied; apply via Supabase MCP before deploying.
 - **Test result:** TypeScript compilation ✓ clean; E2E tests not re-run locally (run against prod after deploy).
 - **Next step:** Apply migration `010_chat_interactions.sql` via Supabase MCP, deploy with `vercel --prod --yes`, run E2E test suite against production.
+
+## Phase 11b — LinkedIn PDF Profile Import
+
+**Date:** 2026-03-28
+
+- **What was built:** Deterministic LinkedIn PDF parser (`src/lib/linkedin/parse-linkedin-pdf.ts`) with `isLinkedInPdf()` detector (checks for `linkedin.com/in/` URL or ≥3 section headers), section splitter, date range parser (handles English + Swedish months, "Present"/"nu"/"i dag"), and parsers for Experience, Education, Skills, Certifications, and Languages sections; falls back to Claude Haiku (existing flow) if parser returns <2 experience entries AND <1 education entry.
+- **Files created:** `src/lib/linkedin/types.ts` (typed interfaces for parsed LinkedIn data), `src/lib/linkedin/parse-linkedin-pdf.ts` (main parser), `src/components/profile/linkedin-import-dialog.tsx` (merge UI dialog with per-section selection: summary radio, work history / education / skills / certifications / languages checkboxes, Add vs Update badges, existing skills shown as "already imported ✓").
+- **Files modified:** `src/app/api/resume/parse/route.ts` — now detects LinkedIn PDFs and returns `{ isLinkedIn: true, linkedInProfile }` for the merge flow, or falls through to Claude for the generic path; `src/app/(protected)/dashboard/profile/profile-form.tsx` — added "Import from LinkedIn" card with collapsible step-by-step guide and LinkedIn-branded dropzone, updated generic PDF upload to detect LinkedIn and surface a toast with "Import now" action button instead of silently overwriting.
+- **Migration applied:** None — all data written to existing `user_profile_data` JSONB columns via the existing `saveProfileAction`.
+- **Test result:** TypeScript compilation ✓ clean on new files; `npm run lint` ✓ no errors in new files; build pre-existing failure (9 errors from Phase 10 chat module missing `ai`/`@ai-sdk/*`/`react-markdown` packages) unchanged by this phase.
+- **Next step:** Apply pending migration `010_chat_interactions.sql`, install missing AI SDK packages (`ai`, `@ai-sdk/anthropic`, `@ai-sdk/react`, `react-markdown`), then `vercel --prod --yes` and run full E2E suite against production.
