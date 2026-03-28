@@ -15,6 +15,8 @@ import {
   Settings,
   User,
   Puzzle,
+  Brain,
+  UploadCloud,
 } from "lucide-react";
 
 const NAV_SECTIONS = [
@@ -31,6 +33,13 @@ const NAV_SECTIONS = [
     items: [
       { href: "/dashboard/draft", label: "Draft Application", icon: PenLine },
       { href: "/dashboard/answers", label: "Answer Library", icon: BookOpen },
+    ],
+  },
+  {
+    label: "KNOWLEDGE",
+    items: [
+      { href: "/dashboard/knowledge", label: "Overview", icon: Brain },
+      { href: "/dashboard/knowledge/upload", label: "Upload", icon: UploadCloud },
     ],
   },
   {
