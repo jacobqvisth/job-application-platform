@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { KnowledgeCategory } from '@/lib/data/knowledge'
 
 interface CategoryCompletenessProps {
@@ -22,20 +23,28 @@ const CATEGORY_CONFIG: {
   { key: 'self_assessment', label: 'Self-Assessment', threshold: 3, icon: '🔍' },
 ]
 
-function DotsProgress({ score }: { score: number }) {
-  const filled = Math.round(score * 4)
-  const color =
-    filled <= 1 ? 'bg-red-300' : filled === 2 ? 'bg-amber-400' : 'bg-emerald-500'
+function progressColor(score: number): string {
+  if (score >= 0.8) return '#22c55e'
+  if (score >= 0.4) return '#f59e0b'
+  return '#ef4444'
+}
 
+function CircleProgress({ score }: { score: number }) {
+  const r = 14
+  const circ = 2 * Math.PI * r
+  const color = progressColor(score)
   return (
-    <div className="flex gap-0.5">
-      {[0, 1, 2, 3].map(i => (
-        <div
-          key={i}
-          className={`h-1.5 w-4 rounded-full ${i < filled ? color : 'bg-muted'}`}
-        />
-      ))}
-    </div>
+    <svg width="36" height="36" viewBox="0 0 36 36" className="-rotate-90">
+      <circle cx="18" cy="18" r={r} fill="none" stroke="#e5e7eb" strokeWidth="3" />
+      <circle
+        cx="18" cy="18" r={r}
+        fill="none"
+        stroke={color}
+        strokeWidth="3"
+        strokeDasharray={`${score * circ} ${circ}`}
+        strokeLinecap="round"
+      />
+    </svg>
   )
 }
 
@@ -47,19 +56,23 @@ export function CategoryCompleteness({ counts }: CategoryCompletenessProps) {
         const score = Math.min(count / threshold, 1.0)
 
         return (
-          <div
+          <Link
             key={key}
-            className="flex flex-col gap-2 rounded-lg border bg-card p-3"
+            href={`/dashboard/knowledge?category=${key}`}
+            className="flex flex-col gap-2 rounded-lg border bg-card p-3 hover:bg-accent/50 transition-colors"
           >
             <div className="flex items-center justify-between">
               <span className="text-sm">{icon}</span>
-              <span className="text-xs font-medium tabular-nums text-muted-foreground">
-                {count}
-              </span>
+              <div className="relative">
+                <CircleProgress score={score} />
+                <span className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold tabular-nums">
+                  {count}
+                </span>
+              </div>
             </div>
             <p className="text-xs font-medium leading-tight">{label}</p>
-            <DotsProgress score={score} />
-          </div>
+            <p className="text-[10px] text-muted-foreground tabular-nums">{count}/{threshold}</p>
+          </Link>
         )
       })}
     </div>

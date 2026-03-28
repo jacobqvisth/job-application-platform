@@ -8,6 +8,7 @@ import {
   getPendingReviewItems,
   getKnowledgeItems,
   getKnowledgeProfileSummary,
+  getPopularTags,
   KnowledgeCategory,
   ConfidenceLevel,
 } from '@/lib/data/knowledge'
@@ -26,6 +27,7 @@ import {
 } from 'lucide-react'
 import { AddKnowledgeItemDialog } from '@/components/knowledge/add-knowledge-item-dialog'
 import { ProfileSummaryCard } from '@/components/knowledge/profile-summary-card'
+import { ImportProfileButton } from '@/components/knowledge/import-profile-button'
 
 export const metadata: Metadata = {
   title: 'Knowledge Base | Job Platform',
@@ -51,7 +53,7 @@ function statusIcon(status: string) {
 export default async function KnowledgePage({
   searchParams,
 }: {
-  searchParams: Promise<{ category?: string; confidence?: string; search?: string; page?: string }>
+  searchParams: Promise<{ category?: string; confidence?: string; search?: string; page?: string; tag?: string }>
 }) {
   const supabase = await createClient()
   const { data: authData } = await supabase.auth.getUser()
@@ -60,7 +62,7 @@ export default async function KnowledgePage({
   const params = await searchParams
   const userId = authData.user.id
 
-  const [counts, documents, pendingItems, allItems, profileSummary] = await Promise.all([
+  const [counts, documents, pendingItems, allItems, profileSummary, popularTags, profileData, importedCheck] = await Promise.all([
     getKnowledgeCategoryCounts(userId),
     getUploadedDocuments(userId),
     getPendingReviewItems(userId),
@@ -69,18 +71,43 @@ export default async function KnowledgePage({
       confidence: params.confidence as ConfidenceLevel | undefined,
       isActive: true,
       search: params.search,
+      tag: params.tag,
     }),
     getKnowledgeProfileSummary(userId),
+    getPopularTags(userId),
+    supabase
+      .from('user_profile_data')
+      .select('summary, work_history, education, skills')
+      .eq('user_id', userId)
+      .single(),
+    supabase
+      .from('knowledge_items')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('source_type', 'profile_import')
+      .limit(1),
   ])
 
   const recentDocs = documents.slice(0, 5)
   const totalItems = Object.values(counts).reduce((a, b) => a + b, 0)
+
+  const pd = profileData.data
+  const hasProfileData = !!(
+    (pd?.work_history as unknown[])?.length ||
+    (pd?.skills as unknown[])?.length ||
+    (pd?.education as unknown[])?.length ||
+    pd?.summary
+  )
+  const hasAlreadyImported = (importedCheck.data?.length ?? 0) > 0
+  const showImportButton = hasProfileData && !hasAlreadyImported
 
   // Pagination
   const page = parseInt(params.page ?? '1')
   const pageSize = 20
   const totalPages = Math.ceil(allItems.length / pageSize)
   const pageItems = allItems.slice((page - 1) * pageSize, page * pageSize)
+
+  const activeFilters = !!(params.category || params.confidence || params.search || params.tag)
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
@@ -103,6 +130,37 @@ export default async function KnowledgePage({
 
       {/* Profile Summary */}
       <ProfileSummaryCard summary={profileSummary} />
+
+      {/* Onboarding — shown when no items yet */}
+      {totalItems === 0 && (
+        <Card className="border-dashed">
+          <CardContent className="py-8">
+            <div className="text-center space-y-4">
+              <BrainIcon className="h-12 w-12 text-muted-foreground/30 mx-auto" />
+              <div>
+                <h3 className="font-semibold">Build Your Knowledge Base</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Your knowledge base is empty. Here&apos;s how to get started:
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3 text-left max-w-xl mx-auto">
+                <div className="rounded-lg border p-3 space-y-1">
+                  <p className="text-sm font-medium">1. Import Profile Data</p>
+                  <p className="text-xs text-muted-foreground">Seed your knowledge base from your existing profile in seconds</p>
+                </div>
+                <div className="rounded-lg border p-3 space-y-1">
+                  <p className="text-sm font-medium">2. Upload Documents</p>
+                  <p className="text-xs text-muted-foreground">Add resumes, portfolios, or any professional documents</p>
+                </div>
+                <div className="rounded-lg border p-3 space-y-1">
+                  <p className="text-sm font-medium">3. Start an Interview</p>
+                  <p className="text-xs text-muted-foreground">Answer guided questions to capture your experience in depth</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Completeness */}
       <Card>
@@ -137,6 +195,7 @@ export default async function KnowledgePage({
                 Start Interview
               </Button>
             </Link>
+            {showImportButton && <ImportProfileButton />}
           </div>
         </CardContent>
       </Card>
@@ -257,12 +316,44 @@ export default async function KnowledgePage({
             <Button type="submit" size="sm" variant="outline" className="h-8">
               Filter
             </Button>
-            {(params.category || params.confidence || params.search) && (
+            {activeFilters && (
               <Link href="/dashboard/knowledge">
                 <Button size="sm" variant="ghost" className="h-8">Clear</Button>
               </Link>
             )}
           </form>
+
+          {/* Popular Tags */}
+          {popularTags.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-xs text-muted-foreground font-medium">Popular tags</p>
+              <div className="flex flex-wrap gap-1.5">
+                {popularTags.map(({ tag }) => (
+                  <Link key={tag} href={`/dashboard/knowledge?tag=${encodeURIComponent(tag)}`}>
+                    <Badge
+                      variant={params.tag === tag ? 'default' : 'secondary'}
+                      className="text-xs cursor-pointer hover:opacity-80 transition-opacity"
+                    >
+                      {tag}
+                    </Badge>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Active tag indicator */}
+          {params.tag && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Filtering by tag:</span>
+              <Badge variant="default" className="text-xs gap-1">
+                {params.tag}
+              </Badge>
+              <Link href="/dashboard/knowledge">
+                <Button size="sm" variant="ghost" className="h-6 px-1.5 text-xs">×</Button>
+              </Link>
+            </div>
+          )}
 
           {/* Items */}
           {pageItems.length === 0 ? (
@@ -270,7 +361,7 @@ export default async function KnowledgePage({
               <BrainIcon className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
               <p className="text-sm text-muted-foreground">
                 {totalItems === 0
-                  ? 'Upload a document to start building your knowledge base.'
+                  ? 'Upload a document or start an interview to build your knowledge base.'
                   : 'No items match the current filters.'}
               </p>
             </div>

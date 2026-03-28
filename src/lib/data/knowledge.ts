@@ -204,6 +204,7 @@ export async function getKnowledgeItems(
     confidence?: ConfidenceLevel
     isActive?: boolean
     search?: string
+    tag?: string
   }
 ) {
   const supabase = await createClient()
@@ -217,6 +218,7 @@ export async function getKnowledgeItems(
   if (filters?.confidence) query = query.eq('confidence', filters.confidence)
   if (filters?.isActive !== undefined) query = query.eq('is_active', filters.isActive)
   if (filters?.search) query = query.or(`title.ilike.%${filters.search}%,content.ilike.%${filters.search}%`)
+  if (filters?.tag) query = query.contains('tags', [filters.tag])
 
   const { data } = await query
   return (data ?? []) as KnowledgeItem[]
@@ -276,4 +278,18 @@ export async function getKnowledgeCategoryCounts(userId: string) {
 
 export async function getPendingReviewItems(userId: string) {
   return getKnowledgeItems(userId, { confidence: 'ai_inferred', isActive: true })
+}
+
+export async function getPopularTags(userId: string, limit = 15) {
+  const items = await getKnowledgeItems(userId, { isActive: true })
+  const tagCounts: Record<string, number> = {}
+  for (const item of items) {
+    for (const tag of item.tags) {
+      if (tag) tagCounts[tag] = (tagCounts[tag] || 0) + 1
+    }
+  }
+  return Object.entries(tagCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([tag, count]) => ({ tag, count }))
 }

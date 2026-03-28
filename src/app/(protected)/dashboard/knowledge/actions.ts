@@ -308,6 +308,136 @@ export async function bulkRejectItemsAction(itemIds: string[]) {
   revalidatePath('/dashboard/knowledge')
 }
 
+// ─── Import Profile Data ──────────────────────────────────
+
+export async function importProfileDataAction() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Unauthorized')
+
+  // Fetch existing profile
+  const { data: profile } = await supabase
+    .from('user_profile_data')
+    .select('summary, work_history, education, skills')
+    .eq('user_id', user.id)
+    .single()
+
+  if (!profile) throw new Error('No profile data found')
+
+  // Check if already imported (avoid duplicates)
+  const { data: existing } = await supabase
+    .from('knowledge_items')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('source_type', 'profile_import')
+    .limit(1)
+
+  if (existing && existing.length > 0) {
+    throw new Error('Profile data has already been imported. Delete imported items first to re-import.')
+  }
+
+  const itemsToInsert: Array<{
+    user_id: string
+    category: string
+    title: string
+    content: string
+    tags: string[]
+    confidence: string
+    source_type: string
+    structured_data: Record<string, unknown>
+  }> = []
+
+  // Convert work history entries → fact items
+  const workHistory = profile.work_history as Array<{
+    title: string; company: string; startDate: string; endDate?: string; bullets?: string[]
+  }> | null
+  if (workHistory?.length) {
+    for (const job of workHistory) {
+      itemsToInsert.push({
+        user_id: user.id,
+        category: 'fact',
+        title: `${job.title} at ${job.company}`,
+        content: `Worked as ${job.title} at ${job.company} from ${job.startDate} to ${job.endDate || 'present'}. ${job.bullets?.join(' ') || ''}`.trim(),
+        tags: ['work-history', 'imported'],
+        confidence: 'imported',
+        source_type: 'profile_import',
+        structured_data: {
+          company: job.company,
+          title: job.title,
+          start_date: job.startDate,
+          end_date: job.endDate || null,
+        },
+      })
+    }
+  }
+
+  // Convert skills → skill items
+  const skills = profile.skills as Array<{ name: string; skills: string[] }> | null
+  if (skills?.length) {
+    for (const category of skills) {
+      for (const skill of category.skills) {
+        itemsToInsert.push({
+          user_id: user.id,
+          category: 'skill',
+          title: skill,
+          content: `${skill} — categorized under ${category.name}`,
+          tags: [category.name.toLowerCase().replace(/\s+/g, '-'), 'imported'],
+          confidence: 'imported',
+          source_type: 'profile_import',
+          structured_data: { skill_category: category.name },
+        })
+      }
+    }
+  }
+
+  // Convert education → fact items
+  const education = profile.education as Array<{
+    degree: string; institution: string; field?: string
+  }> | null
+  if (education?.length) {
+    for (const edu of education) {
+      itemsToInsert.push({
+        user_id: user.id,
+        category: 'fact',
+        title: `${edu.degree} from ${edu.institution}`,
+        content: `${edu.degree} in ${edu.field || 'N/A'} from ${edu.institution}`,
+        tags: ['education', 'imported'],
+        confidence: 'imported',
+        source_type: 'profile_import',
+        structured_data: { institution: edu.institution, degree: edu.degree, field: edu.field },
+      })
+    }
+  }
+
+  // Convert profile summary → philosophy item
+  if (profile.summary) {
+    itemsToInsert.push({
+      user_id: user.id,
+      category: 'philosophy',
+      title: 'Professional Summary (imported)',
+      content: profile.summary as string,
+      tags: ['profile-summary', 'imported'],
+      confidence: 'imported',
+      source_type: 'profile_import',
+      structured_data: {},
+    })
+  }
+
+  if (itemsToInsert.length === 0) {
+    throw new Error('No profile data to import')
+  }
+
+  const { error } = await supabase
+    .from('knowledge_items')
+    .insert(itemsToInsert)
+
+  if (error) throw new Error('Failed to import profile data')
+
+  revalidatePath('/dashboard/knowledge')
+  return { importedCount: itemsToInsert.length }
+}
+
+
 export async function deleteDocumentAction(documentId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
