@@ -16,6 +16,8 @@ import {
   practiceInterviewQuestionTool,
   getSearchInsightsTool,
   shareOnLinkedInTool,
+  saveJobSearchTool,
+  saveJobToTrackerTool,
 } from '@/lib/chat/tools';
 import { buildSystemPrompt } from '@/lib/chat/system-prompt';
 import { extractFlowContext } from '@/lib/chat/flow-context';
@@ -79,6 +81,8 @@ export async function POST(req: Request) {
     practiceInterviewQuestion: practiceInterviewQuestionTool(user.id),
     getSearchInsights: getSearchInsightsTool(user.id),
     shareOnLinkedIn: shareOnLinkedInTool(user.id),
+    saveJobSearch: saveJobSearchTool(user.id),
+    saveJobToTracker: saveJobToTrackerTool(user.id),
   };
 
   // Convert UIMessages to ModelMessages for streamText

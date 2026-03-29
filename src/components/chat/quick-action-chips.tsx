@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Search, BarChart3, Briefcase, MessageSquare, FileText, Kanban, Mail } from "lucide-react";
+import { Search, BarChart3, Briefcase, MessageSquare, FileText, Kanban, Mail, Bookmark } from "lucide-react";
 import type { FlowContext } from "@/lib/chat/flow-context";
 import { trackInteraction } from "@/lib/chat/track-interaction";
 
@@ -18,6 +18,8 @@ type LastTool =
   | "navigateTo"
   | "draftFollowUpEmail"
   | "practiceInterviewQuestion"
+  | "saveJobSearch"
+  | "saveJobToTracker"
   | null;
 
 interface Chip {
@@ -53,6 +55,11 @@ const AFTER_JOBS_CHIPS: Chip[] = [
   {
     label: "Apply to top match",
     message: "Prepare an application for the highest-scored job from my search",
+  },
+  {
+    label: "Save this search",
+    message: "Save this job search as a daily alert",
+    icon: <Bookmark className="h-3 w-3" />,
   },
   {
     label: "Refine search",
