@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getResumeById } from "@/lib/data/resumes";
+import { getPrimaryMarket } from "@/lib/data/markets";
+import { getMarketConfig, DEFAULT_MARKET } from "@/lib/markets";
 import Anthropic from "@anthropic-ai/sdk";
 import type {
   ExperienceSectionContent,
@@ -28,10 +30,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const resume = await getResumeById(resumeId);
+    const [resume, primaryMarket] = await Promise.all([
+      getResumeById(resumeId),
+      getPrimaryMarket(supabase, user.id),
+    ]);
     if (!resume || resume.user_id !== user.id) {
       return NextResponse.json({ error: "Resume not found" }, { status: 404 });
     }
+
+    const marketCode = primaryMarket?.market_code ?? DEFAULT_MARKET;
+    const marketConfig = getMarketConfig(marketCode);
+    const languagePreference = primaryMarket?.language_preference ?? marketConfig?.defaultLanguage ?? 'en';
+    const norms = marketConfig?.applicationNorms;
 
     // Extract current summary and experience bullets for context
     const summarySection = resume.content.sections.find(
@@ -72,7 +82,12 @@ export async function POST(req: NextRequest) {
       messages: [
         {
           role: "user",
-          content: `You are a professional resume writer. Tailor this resume for the job description below.
+          content: `You are a professional resume writer. Tailor this resume for the job description below.${marketConfig ? `
+
+Market context: ${marketConfig.name} (${marketCode})
+CV norms: ${norms?.cvPages ?? 2} pages typical${norms?.photoOnCV === 'common' ? ', photo on CV is common' : norms?.photoOnCV === 'discouraged' ? ', no photo on CV' : ''}, ${norms?.referencesOnCV ? 'include references section' : 'no references section needed'}
+${norms?.coverLetterExpected ? `Cover letter expected (called "${norms.coverLetterName}" in this market)` : 'Cover letter not typically expected'}
+${languagePreference !== 'en' ? `Language preference: ${languagePreference} — generate suggested content in ${languagePreference === 'sv' ? 'Swedish' : languagePreference === 'de' ? 'German' : languagePreference === 'no' ? 'Norwegian' : languagePreference} unless the job description is in English` : ''}` : ''}
 
 Current resume summary:
 ${currentSummary}

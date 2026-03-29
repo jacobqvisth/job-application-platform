@@ -2,6 +2,8 @@ import { tool, zodSchema } from 'ai';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { getPrimaryMarket } from '@/lib/data/markets';
+import { getMarketConfig, DEFAULT_MARKET } from '@/lib/markets';
 import type {
   SearchJobsResult,
   ApplicationStatusResult,
@@ -51,7 +53,22 @@ export function searchJobsTool(userId: string) {
       salaryMin?: number;
       source?: 'jobtechdev' | 'adzuna';
     }): Promise<SearchJobsResult> => {
-      const useSource = source ?? 'jobtechdev';
+      // Resolve source from user's primary market if not explicitly provided
+      let useSource = source;
+      let useCountry = country;
+      if (!useSource) {
+        const supabaseForMarket = await createClient();
+        const primaryMarket = await getPrimaryMarket(supabaseForMarket, userId);
+        const marketCode = primaryMarket?.market_code ?? DEFAULT_MARKET;
+        const marketConfig = getMarketConfig(marketCode);
+        if (marketConfig) {
+          useSource = marketConfig.jobSources.primary === 'jobtechdev' ? 'jobtechdev' : 'adzuna';
+          if (!useCountry) {
+            useCountry = marketConfig.jobSources.adzunaCountry ?? marketCode.toLowerCase();
+          }
+        }
+      }
+      useSource = useSource ?? 'jobtechdev';
 
       // Step 1: Try live API search
       let liveResults: import('./types').JobResult[] | null = null;
@@ -73,7 +90,7 @@ export function searchJobsTool(userId: string) {
       } else {
         liveResults = await searchAdzunaLive(userId, query, {
           location,
-          country: country ?? 'se',
+          country: useCountry ?? 'se',
           remote: remoteType === 'remote',
           salaryMin,
         });

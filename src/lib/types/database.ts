@@ -477,6 +477,28 @@ export type UpsertFormFieldMapping = Pick<
   'ats_type' | 'field_identifier' | 'profile_key' | 'is_user_corrected'
 >;
 
+// Market settings (Phase S4)
+
+export interface UserMarketSetting {
+  id: string;
+  user_id: string;
+  market_code: string;
+  is_primary: boolean;
+  language_preference: string;
+  job_search_radius_km: number;
+  salary_currency: string;
+  resume_format: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MarketPreferences {
+  language_preference: string;
+  job_search_radius_km: number;
+  salary_currency: string;
+  resume_format: string;
+}
+
 // LinkedIn connection (OAuth tokens for Share API)
 export interface LinkedInConnection {
   id: string;

@@ -88,4 +88,9 @@ test.describe('API Health Checks', () => {
     const response = await request.get('/api/extension/field-mappings?ats_type=greenhouse');
     expect(response.status()).toBe(401);
   });
+
+  test('jobs search respects market parameter (still requires auth)', async ({ request }) => {
+    const response = await request.get('/api/jobs/search?q=engineer&market=SE');
+    expect(response.status()).toBe(401);
+  });
 });

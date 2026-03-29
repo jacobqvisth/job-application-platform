@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/data/profile';
+import { getPrimaryMarket } from '@/lib/data/markets';
+import { getMarketConfig } from '@/lib/markets';
 import { computeMatchScore } from '@/lib/utils/match-score';
 import { fetchJobTechDevRaw, hitToJobResult } from '@/lib/chat/jobtechdev-search';
 import type { AdzunaJobResult } from '@/lib/types/database';
@@ -29,11 +31,43 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const q = searchParams.get('q');
   const location = searchParams.get('location') || '';
-  const country = searchParams.get('country') || 'se';
   const remote = searchParams.get('remote') === 'true';
   const salaryMin = searchParams.get('salary_min');
   const page = parseInt(searchParams.get('page') || '1', 10);
-  const source = searchParams.get('source') || 'jobtechdev';
+
+  // Resolve market: explicit market param → explicit country param → user's primary market → default SE
+  let country = searchParams.get('country') || '';
+  let source = searchParams.get('source') || '';
+  const marketParam = searchParams.get('market');
+
+  if (marketParam) {
+    const marketConfig = getMarketConfig(marketParam);
+    if (marketConfig) {
+      if (marketConfig.jobSources.primary === 'jobtechdev') {
+        source = source || 'jobtechdev';
+      } else {
+        source = source || 'adzuna';
+        country = country || marketConfig.jobSources.adzunaCountry || marketParam.toLowerCase();
+      }
+    }
+  }
+
+  if (!source || !country) {
+    const primaryMarket = await getPrimaryMarket(supabase, user.id);
+    const primaryCode = primaryMarket?.market_code ?? 'SE';
+    const primaryConfig = getMarketConfig(primaryCode);
+    if (primaryConfig) {
+      if (!source) {
+        source = primaryConfig.jobSources.primary === 'jobtechdev' ? 'jobtechdev' : 'adzuna';
+      }
+      if (!country) {
+        country = primaryConfig.jobSources.adzunaCountry ?? primaryCode.toLowerCase();
+      }
+    }
+  }
+
+  source = source || 'jobtechdev';
+  country = country || 'se';
 
   if (!q) {
     return NextResponse.json({ error: 'Query parameter "q" is required' }, { status: 400 });

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getExtensionUser } from '@/lib/supabase/extension-auth';
+import { getPrimaryMarket } from '@/lib/data/markets';
+import { getMarketConfig, DEFAULT_MARKET } from '@/lib/markets';
 import type { ExtensionProfile, ExperienceItem } from '@/lib/types/database';
 
 const CORS_HEADERS = {
@@ -20,10 +22,11 @@ export async function GET(request: NextRequest) {
 
   const { userId, supabase } = auth;
 
-  // Fetch profile and user_profile_data in parallel
-  const [profileResult, profileDataResult] = await Promise.all([
+  // Fetch profile, user_profile_data, and primary market in parallel
+  const [profileResult, profileDataResult, primaryMarket] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', userId).single(),
     supabase.from('user_profile_data').select('*').eq('user_id', userId).maybeSingle(),
+    getPrimaryMarket(supabase, userId),
   ]);
 
   if (profileResult.error || !profileResult.data) {
@@ -88,5 +91,23 @@ export async function GET(request: NextRequest) {
     summary: pd?.summary ?? null,
   };
 
-  return NextResponse.json({ success: true, profile }, { headers: CORS_HEADERS });
+  const marketCode = primaryMarket?.market_code ?? DEFAULT_MARKET;
+  const marketConfig = getMarketConfig(marketCode);
+
+  return NextResponse.json(
+    {
+      success: true,
+      profile,
+      market: {
+        code: marketCode,
+        name: marketConfig?.name ?? marketCode,
+        flag: marketConfig?.flag ?? '',
+        language: primaryMarket?.language_preference ?? marketConfig?.defaultLanguage ?? 'en',
+        currency: primaryMarket?.salary_currency ?? marketConfig?.currency ?? 'SEK',
+        atsAdapters: marketConfig?.atsAdapters ?? [],
+        applicationNorms: marketConfig?.applicationNorms ?? null,
+      },
+    },
+    { headers: CORS_HEADERS }
+  );
 }

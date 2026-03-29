@@ -4,6 +4,7 @@ import { getAllActiveSavedSearches, updateSavedSearchLastRun } from '@/lib/data/
 import { upsertJobListings } from '@/lib/data/job-listings';
 import { computeMatchScore } from '@/lib/utils/match-score';
 import { fetchJobTechDevRaw, hitToJobResult } from '@/lib/chat/jobtechdev-search';
+import { getMarketConfig } from '@/lib/markets';
 import type { UserProfileData, SavedSearch } from '@/lib/types/database';
 
 const MIN_MATCH_SCORE = 40;
@@ -24,7 +25,7 @@ async function searchAdzuna(search: SavedSearch, page = 1) {
   const appKey = process.env.ADZUNA_APP_KEY;
   if (!appId || !appKey) return null;
 
-  const country = search.country || 'se';
+  const country = getAdzunaCountry(search);
   const whatQuery = search.remote_only ? `remote ${search.query}` : search.query;
   const whereQuery =
     search.remote_only && !search.location ? 'remote' : search.location ?? '';
@@ -45,7 +46,16 @@ async function searchAdzuna(search: SavedSearch, page = 1) {
 
 function isSwedishSearch(search: SavedSearch): boolean {
   const country = search.country?.toLowerCase();
-  return !country || country === 'se';
+  if (!country || country === 'se') return true;
+  // Also check via market config — if country maps to a jobtechdev market, use that path
+  const config = getMarketConfig(country.toUpperCase());
+  return config?.jobSources.primary === 'jobtechdev';
+}
+
+function getAdzunaCountry(search: SavedSearch): string {
+  const country = search.country?.toLowerCase() ?? 'se';
+  const config = getMarketConfig(country.toUpperCase());
+  return config?.jobSources.adzunaCountry ?? country;
 }
 
 export async function GET(request: NextRequest) {

@@ -1,14 +1,16 @@
 import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { getGmailConnection } from "@/lib/data/emails";
+import { getUserMarkets } from "@/lib/data/markets";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Mail, Bot, LogOut } from "lucide-react";
+import { Mail, Bot, LogOut, Globe } from "lucide-react";
 import { SignOutButton } from "./sign-out-button";
 import { GmailConnectionCard } from "@/components/settings/gmail-connection";
 import { LinkedInConnectionCard } from "@/components/settings/linkedin-connection";
+import { MarketSettings } from "@/components/settings/market-settings";
 import type { LinkedInConnection } from "@/lib/types/database";
 
 export default async function SettingsPage() {
@@ -26,7 +28,7 @@ export default async function SettingsPage() {
     .join("")
     .toUpperCase();
 
-  const [gmailConnection, linkedInResult] = await Promise.all([
+  const [gmailConnection, linkedInResult, userMarkets] = await Promise.all([
     user ? getGmailConnection(supabase, user.id) : Promise.resolve(null),
     user
       ? supabase
@@ -35,6 +37,7 @@ export default async function SettingsPage() {
           .eq("user_id", user.id)
           .single()
       : Promise.resolve({ data: null }),
+    user ? getUserMarkets(supabase, user.id) : Promise.resolve([]),
   ]);
 
   const linkedInConnection = (linkedInResult.data as LinkedInConnection | null) ?? null;
@@ -83,6 +86,21 @@ export default async function SettingsPage() {
           <Suspense fallback={<div className="text-sm text-muted-foreground">Loading...</div>}>
             <LinkedInConnectionCard connection={linkedInConnection} />
           </Suspense>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Globe className="h-5 w-5" />
+            Your Markets
+          </CardTitle>
+          <CardDescription>
+            Configure which country job markets you&apos;re active in
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <MarketSettings userMarkets={userMarkets} />
         </CardContent>
       </Card>
 

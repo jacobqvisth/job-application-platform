@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getExtensionUser } from '@/lib/supabase/extension-auth';
+import { getPrimaryMarket } from '@/lib/data/markets';
+import { getMarketConfig, DEFAULT_MARKET } from '@/lib/markets';
 import type { UpsertFormFieldMapping } from '@/lib/types/database';
 
 const CORS_HEADERS = {
@@ -29,17 +31,41 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const { data: mappings, error } = await supabase
-    .from('form_field_mappings')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('ats_type', atsType);
+  const [{ data: mappings, error }, primaryMarket] = await Promise.all([
+    supabase
+      .from('form_field_mappings')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('ats_type', atsType),
+    getPrimaryMarket(supabase, userId),
+  ]);
 
   if (error) {
     return NextResponse.json({ error: 'Failed to fetch mappings' }, { status: 500, headers: CORS_HEADERS });
   }
 
-  return NextResponse.json({ success: true, mappings: mappings ?? [] }, { headers: CORS_HEADERS });
+  const marketCode = primaryMarket?.market_code ?? DEFAULT_MARKET;
+  const marketConfig = getMarketConfig(marketCode);
+
+  // Market-specific field hints for the extension
+  const marketFieldHints: Record<string, string> = {};
+  if (marketCode === 'SE') {
+    marketFieldHints['postal_code'] = 'postal_code';
+  } else {
+    marketFieldHints['zip_code'] = 'postal_code';
+    marketFieldHints['zip'] = 'postal_code';
+  }
+
+  return NextResponse.json(
+    {
+      success: true,
+      mappings: mappings ?? [],
+      marketCode,
+      marketFieldHints,
+      coverLetterName: marketConfig?.applicationNorms.coverLetterName ?? 'Cover Letter',
+    },
+    { headers: CORS_HEADERS }
+  );
 }
 
 export async function POST(request: NextRequest) {
