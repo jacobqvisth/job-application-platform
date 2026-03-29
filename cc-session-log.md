@@ -171,3 +171,15 @@ Phase 10c: Job discovery improvements, saved search management, and push notific
 - **Migration applied:** None — all tables already exist (`applications`, `saved_searches`).
 - **Test result:** `npm run build` ✓ clean compile (required `npm install` in main repo first — AI SDK packages were not installed). No new TypeScript errors in changed/created files.
 - **Next step:** `vercel --prod --yes` then manual verify: (1) chat → "Find product manager jobs in Stockholm" → live Adzuna results with match scores; (2) click "Save" on a job → appears on kanban; (3) click "Save search" → saved search appears on /dashboard/jobs; (4) run E2E suite against prod.
+
+---
+
+## Health Check & Cleanup
+
+**Date:** 2026-03-29
+
+- **What was fixed:** (1) Deleted 3 stale remote worktree branches (`claude/admiring-roentgen`, `claude/naughty-hellman`, `claude/romantic-tereshkova`) and dropped 2 stale git stashes (CLAUDE.md edits + Tailwind version bump, both superseded). (2) Cleared all 22 lint issues: moved `timeAgo()` outside its component to fix the `react-hooks/purity` impure-function error; added block-level `eslint-disable` for 2 valid `setState`-in-`useEffect` patterns (syncing form state from props — functionally correct, React 18 batches these); fixed unescaped `"` entities in `application-resumes.tsx`; removed 12 unused imports/variables across 12 files. (3) Migrated `src/middleware.ts` → `src/proxy.ts` and renamed export `middleware` → `proxy` per Next.js 16 deprecation. (4) Expanded `.env.local.example` from 2 vars to all 13 required vars (`LINKEDIN_*`, `ADZUNA_*`, `E2E_SECRET`, `TEST_USER_EMAIL` were missing). (5) Ran `npm audit fix` — resolved 2 vulnerabilities (`brace-expansion` moderate + `path-to-regexp` high). (6) `tsc --noEmit` passes clean.
+- **Files changed:** `src/proxy.ts` (new, replaces `src/middleware.ts`), `.env.local.example`, `e2e/auth.setup.ts`, `e2e/jobs.spec.ts`, `extension/content-linkedin.js`, `package-lock.json`, `src/app/(protected)/dashboard/applications/applications-client.tsx`, `src/app/(protected)/dashboard/chat/page.tsx`, `src/app/(protected)/dashboard/resumes/[id]/resume-editor.tsx`, `src/components/answers/answer-library.tsx`, `src/components/answers/answer-variant.tsx`, `src/components/applications/application-detail-page.tsx`, `src/components/applications/application-detail.tsx`, `src/components/applications/application-resumes.tsx`, `src/components/chat/application-package.tsx`, `src/components/dashboard/recent-activity.tsx`, `src/components/draft/draft-wizard.tsx`, `src/components/emails/application-emails.tsx`, `src/components/emails/email-detail.tsx`, `src/components/layout/top-bar.tsx`, `src/lib/chat/pattern-detection.ts`, `src/lib/data/screening-answers.ts`.
+- **Migration applied:** None.
+- **Test result:** All 78 E2E tests pass against production (`https://job-application-platform-lake.vercel.app`). `npm run lint` clean (0 errors, 0 warnings). `npx tsc --noEmit` clean.
+- **Next step:** codebase is in a clean, healthy state — proceed with feature work.
