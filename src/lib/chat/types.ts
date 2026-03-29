@@ -10,6 +10,17 @@ export interface JobResult {
   url: string;
   source: string;
   postedAt?: string | null;
+  // JobTechDev-enriched fields (optional, backwards-compatible)
+  ats?: string | null;
+  applyUrl?: string | null;
+  occupation?: string | null;
+  occupationField?: string | null;
+  employmentType?: string | null;
+  deadline?: string | null;
+  requiredSkills?: string[];
+  niceToHaveSkills?: string[];
+  numberOfVacancies?: number | null;
+  employerOrgNumber?: string | null;
 }
 
 export interface ApplicationSummary {

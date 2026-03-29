@@ -57,6 +57,15 @@ interface JobListingInsert {
   remote_type: string | null;
   posted_at: string | null;
   match_score: number;
+  // JobTechDev-enriched fields (optional)
+  ats_type?: string | null;
+  apply_url?: string | null;
+  occupation?: string | null;
+  occupation_field?: string | null;
+  employment_type?: string | null;
+  deadline?: string | null;
+  required_skills?: string[] | null;
+  number_of_vacancies?: number | null;
 }
 
 // For cron: bulk upsert listings — skip on conflict (don't overwrite is_saved)

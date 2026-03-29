@@ -22,6 +22,7 @@ import type {
   SaveJobToTrackerResult,
 } from './types';
 import { searchAdzunaLive } from './adzuna-search';
+import { searchJobTechDev } from './jobtechdev-search';
 import { fetchInsightsData } from './insights-data';
 import { detectJobSearchStage } from './stage-detection';
 import { detectPatterns } from './pattern-detection';
@@ -31,35 +32,57 @@ import { detectPatterns } from './pattern-detection';
 export function searchJobsTool(userId: string) {
   return tool({
     description:
-      "Search for jobs via live job market API. Use when the user wants to find jobs, look for opportunities, or asks what's available. Returns real-time results from job boards.",
+      "Search for jobs via live job market API. Defaults to Swedish jobs via Platsbanken (JobTechDev). Use when the user wants to find jobs, look for opportunities, or asks what's available. Returns real-time results from job boards.",
     inputSchema: zodSchema(
       z.object({
         query: z.string().describe('Job title or keywords to search for'),
-        location: z.string().optional().describe('City or region filter (e.g. "Stockholm", "London")'),
+        location: z.string().optional().describe('City or region filter (e.g. "Stockholm", "Göteborg")'),
         remoteType: z.enum(['remote', 'hybrid', 'onsite']).optional().describe('Remote type preference'),
-        country: z.string().optional().describe('Country code for job search (e.g. "se" for Sweden, "gb" for UK, "us" for US). Default: "se"'),
+        country: z.string().optional().describe('Country code — omit for Sweden (JobTechDev), or use "gb"/"us" etc. to search via Adzuna'),
         salaryMin: z.number().optional().describe('Minimum annual salary filter'),
+        source: z.enum(['jobtechdev', 'adzuna']).optional().default('jobtechdev').describe('Job source: "jobtechdev" for Swedish jobs (default), "adzuna" for international'),
       })
     ),
-    execute: async ({ query, location, remoteType, country, salaryMin }: {
+    execute: async ({ query, location, remoteType, country, salaryMin, source }: {
       query: string;
       location?: string;
       remoteType?: 'remote' | 'hybrid' | 'onsite';
       country?: string;
       salaryMin?: number;
+      source?: 'jobtechdev' | 'adzuna';
     }): Promise<SearchJobsResult> => {
-      // Step 1: Try live Adzuna API search
-      const liveResults = await searchAdzunaLive(userId, query, {
-        location,
-        country: country ?? 'se',
-        remote: remoteType === 'remote',
-        salaryMin,
-      });
+      const useSource = source ?? 'jobtechdev';
+
+      // Step 1: Try live API search
+      let liveResults: import('./types').JobResult[] | null = null;
+
+      if (useSource === 'jobtechdev') {
+        const { jobs, total } = await searchJobTechDev(userId, query, {
+          location,
+          remote: remoteType === 'remote',
+          limit: 20,
+        });
+        if (jobs.length > 0) {
+          let results = jobs;
+          if (remoteType && remoteType !== 'remote') {
+            const filtered = results.filter((r) => r.remoteType === remoteType);
+            if (filtered.length > 0) results = filtered;
+          }
+          return { jobs: results.slice(0, 10), total, query, source: 'live' };
+        }
+      } else {
+        liveResults = await searchAdzunaLive(userId, query, {
+          location,
+          country: country ?? 'se',
+          remote: remoteType === 'remote',
+          salaryMin,
+        });
+      }
 
       if (liveResults && liveResults.length > 0) {
         let results = liveResults;
 
-        // Filter by remoteType if hybrid/onsite (remote is handled by Adzuna query)
+        // Filter by remoteType if hybrid/onsite (remote is handled by query)
         if (remoteType && remoteType !== 'remote') {
           const filtered = results.filter((r) => r.remoteType === remoteType);
           if (filtered.length > 0) results = filtered;

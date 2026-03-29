@@ -373,7 +373,7 @@ export interface JobListing {
   user_id: string;
   saved_search_id: string | null;
   external_id: string;
-  source: 'adzuna';
+  source: 'adzuna' | 'jobtechdev';
   title: string;
   company: string;
   location: string | null;
@@ -386,6 +386,15 @@ export interface JobListing {
   match_score: number;
   is_saved: boolean;
   created_at: string;
+  // JobTechDev-enriched fields
+  ats_type: string | null;
+  apply_url: string | null;
+  occupation: string | null;
+  occupation_field: string | null;
+  employment_type: string | null;
+  deadline: string | null;
+  required_skills: string[] | null;
+  number_of_vacancies: number | null;
 }
 
 // Used for live search results (not persisted — returned from Adzuna API)

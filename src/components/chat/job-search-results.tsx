@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ChevronDown, ChevronUp, ExternalLink, MapPin, Briefcase, Bookmark } from "lucide-react";
+import { ChevronDown, ChevronUp, ExternalLink, MapPin, Briefcase, Bookmark, Calendar, Users } from "lucide-react";
 import type { SearchJobsResult, JobResult } from "@/lib/chat/types";
 
 interface Props {
@@ -24,11 +24,39 @@ function matchBadgeVariant(score: number): "default" | "secondary" | "outline" {
   return "outline";
 }
 
+function formatDeadline(deadline: string): string {
+  try {
+    return new Date(deadline).toLocaleDateString("sv-SE", {
+      day: "numeric",
+      month: "short",
+    });
+  } catch {
+    return deadline;
+  }
+}
+
+const ATS_COLORS: Record<string, string> = {
+  teamtailor: "bg-purple-100 text-purple-700",
+  varbi: "bg-blue-100 text-blue-700",
+  jobylon: "bg-teal-100 text-teal-700",
+  reachmee: "bg-orange-100 text-orange-700",
+  workday: "bg-yellow-100 text-yellow-700",
+  greenhouse: "bg-green-100 text-green-700",
+  lever: "bg-pink-100 text-pink-700",
+};
+
 function JobCard({ job, onAppend }: { job: JobResult; onAppend?: (content: string) => void }) {
   const [expanded, setExpanded] = useState(false);
 
   const salaryText = job.salary ?? null;
-  const locationText = [job.location, job.remoteType].filter(Boolean).join(" · ");
+  const locationText = [job.location, job.remoteType && job.remoteType !== "unknown" ? job.remoteType : null]
+    .filter(Boolean)
+    .join(" · ");
+
+  const applyHref = job.applyUrl ?? job.url;
+  const hasDeadline = !!job.deadline;
+  const hasSkills = job.requiredSkills && job.requiredSkills.length > 0;
+  const isPlatsbanken = job.source === "jobtechdev";
 
   return (
     <Card className={`border-l-4 ${matchColor(job.matchScore)} overflow-hidden`}>
@@ -40,8 +68,20 @@ function JobCard({ job, onAppend }: { job: JobResult; onAppend?: (content: strin
               <Badge variant={matchBadgeVariant(job.matchScore)} className="text-xs shrink-0">
                 {job.matchScore}% match
               </Badge>
+              {isPlatsbanken && (
+                <Badge variant="outline" className="text-xs shrink-0 bg-blue-50 text-blue-700 border-blue-200">
+                  Platsbanken
+                </Badge>
+              )}
+              {job.ats && (
+                <span
+                  className={`text-xs px-1.5 py-0.5 rounded font-medium shrink-0 ${ATS_COLORS[job.ats] ?? "bg-zinc-100 text-zinc-600"}`}
+                >
+                  {job.ats.charAt(0).toUpperCase() + job.ats.slice(1)}
+                </span>
+              )}
             </div>
-            <div className="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground flex-wrap">
               <Briefcase className="h-3 w-3 shrink-0" />
               <span className="truncate">{job.company}</span>
               {locationText && (
@@ -57,7 +97,48 @@ function JobCard({ job, onAppend }: { job: JobResult; onAppend?: (content: strin
                   <span>{salaryText}</span>
                 </>
               )}
+              {job.occupationField && (
+                <>
+                  <span>·</span>
+                  <span className="text-zinc-400">{job.occupationField}</span>
+                </>
+              )}
             </div>
+            {/* Deadline + vacancies row */}
+            {(hasDeadline || (job.numberOfVacancies && job.numberOfVacancies > 1)) && (
+              <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                {hasDeadline && (
+                  <span className="flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    Sista ansökningsdag: {formatDeadline(job.deadline!)}
+                  </span>
+                )}
+                {job.numberOfVacancies && job.numberOfVacancies > 1 && (
+                  <span className="flex items-center gap-1">
+                    <Users className="h-3 w-3" />
+                    {job.numberOfVacancies} platser
+                  </span>
+                )}
+              </div>
+            )}
+            {/* Required skills */}
+            {hasSkills && (
+              <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                {job.requiredSkills!.slice(0, 5).map((skill) => (
+                  <span
+                    key={skill}
+                    className="text-xs bg-zinc-100 text-zinc-600 px-1.5 py-0.5 rounded"
+                  >
+                    {skill}
+                  </span>
+                ))}
+                {job.requiredSkills!.length > 5 && (
+                  <span className="text-xs text-muted-foreground">
+                    +{job.requiredSkills!.length - 5} mer
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -110,13 +191,13 @@ function JobCard({ job, onAppend }: { job: JobResult; onAppend?: (content: strin
             )}
           </Button>
           <a
-            href={job.url}
+            href={applyHref}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
           >
             <ExternalLink className="h-3 w-3" />
-            Open
+            {job.applyUrl ? "Apply" : "Open"}
           </a>
         </div>
       </CardContent>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/data/profile';
 import { computeMatchScore } from '@/lib/utils/match-score';
+import { fetchJobTechDevRaw, hitToJobResult } from '@/lib/chat/jobtechdev-search';
 import type { AdzunaJobResult } from '@/lib/types/database';
 
 function detectRemoteType(
@@ -28,15 +29,44 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const q = searchParams.get('q');
   const location = searchParams.get('location') || '';
-  const country = searchParams.get('country') || 'gb';
+  const country = searchParams.get('country') || 'se';
   const remote = searchParams.get('remote') === 'true';
   const salaryMin = searchParams.get('salary_min');
   const page = parseInt(searchParams.get('page') || '1', 10);
+  const source = searchParams.get('source') || 'jobtechdev';
 
   if (!q) {
     return NextResponse.json({ error: 'Query parameter "q" is required' }, { status: 400 });
   }
 
+  // ─── JobTechDev path (default for Swedish jobs) ─────────────────────────
+  if (source === 'jobtechdev') {
+    const { hits, total } = await fetchJobTechDevRaw(q, {
+      location: location || undefined,
+      remote,
+      limit: 20,
+      offset: (page - 1) * 20,
+    });
+
+    if (hits.length === 0) {
+      return NextResponse.json({ success: true, results: [], total: 0, page });
+    }
+
+    const profile = await getUserProfile(user.id);
+    const results = hits.map((hit) => {
+      const skillsText = (hit.must_have?.skills ?? []).map((s) => s.label).join(' ');
+      const score = computeMatchScore(
+        { title: hit.headline ?? '', description: `${hit.description?.text ?? ''} ${skillsText}` },
+        profile
+      );
+      return hitToJobResult(hit, score);
+    });
+
+    results.sort((a, b) => b.matchScore - a.matchScore);
+    return NextResponse.json({ success: true, results, total, page });
+  }
+
+  // ─── Adzuna path (fallback for non-Swedish / international searches) ─────
   const appId = process.env.ADZUNA_APP_ID;
   const appKey = process.env.ADZUNA_APP_KEY;
 
@@ -47,7 +77,6 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Build Adzuna query
   const whatQuery = remote ? `remote ${q}` : q;
   const whereQuery = remote && !location ? 'remote' : location;
 
@@ -120,7 +149,6 @@ export async function GET(request: NextRequest) {
     };
   });
 
-  // Sort by match score descending
   results.sort((a, b) => b.match_score - a.match_score);
 
   return NextResponse.json({
