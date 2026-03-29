@@ -26,6 +26,7 @@ interface InteractionRow {
 
 export function detectPatterns(
   applications: ApplicationRow[],
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   interactions: InteractionRow[]
 ): SearchInsight[] {
   const insights: SearchInsight[] = [];

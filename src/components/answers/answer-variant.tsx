@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Trash2, Pencil, Check, X } from "lucide-react";
 import { toast } from "sonner";
-import { updateAnswerAction, deleteAnswerAction, updateAnswerRatingAction, updateAnswerToneAction } from "@/app/(protected)/dashboard/answers/actions";
+import { updateAnswerAction, deleteAnswerAction, updateAnswerRatingAction } from "@/app/(protected)/dashboard/answers/actions";
 import type { ScreeningAnswer, AnswerRating, AnswerTone } from "@/lib/types/database";
 
 const RATING_CONFIG: Record<AnswerRating, { label: string; dotClass: string }> = {

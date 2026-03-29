@@ -26,7 +26,6 @@ export function ApplicationDetailPage({
   application,
   events,
   prepPack,
-  profile,
 }: ApplicationDetailPageProps) {
   const appliedDate = application.applied_at
     ? new Date(application.applied_at).toLocaleDateString("en-US", {

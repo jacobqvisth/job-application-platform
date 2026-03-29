@@ -87,6 +87,7 @@ export function ApplicationDetail({
   const [newNote, setNewNote] = useState("");
   const [followupDate, setFollowupDate] = useState("");
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (application) {
       setCompany(application.company);
@@ -104,6 +105,7 @@ export function ApplicationDetail({
       setFollowupDate("");
     }
   }, [application]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (!application) return null;
 

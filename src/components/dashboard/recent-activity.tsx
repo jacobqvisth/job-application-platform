@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+
 import { ApplicationEvent, Application } from "@/lib/types/database";
 import {
   ArrowRightLeft,

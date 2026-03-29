@@ -198,13 +198,6 @@ export function ResumeEditor({ resume }: ResumeEditorProps) {
   function getExperienceContent(section: ResumeSection): ExperienceSectionContent {
     return section.content as ExperienceSectionContent;
   }
-  function getEducationContent(section: ResumeSection): EducationSectionContent {
-    return section.content as EducationSectionContent;
-  }
-  function getSkillsContent(section: ResumeSection): SkillsSectionContent {
-    return section.content as SkillsSectionContent;
-  }
-
   // Tailor
   async function handleTailor() {
     if (!tailorJD.trim()) return;

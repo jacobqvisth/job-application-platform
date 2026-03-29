@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { ScreeningAnswer, CreateScreeningAnswerData } from "@/lib/types/database";
+import type { ScreeningAnswer } from "@/lib/types/database";
 
 export async function getUserScreeningAnswers(
   userId: string,

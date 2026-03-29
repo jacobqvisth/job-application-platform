@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 const STORAGE_STATE = 'e2e/.auth/user.json';
 const TEST_PASSWORD = 'test-password-e2e-2026!';
 
-setup('authenticate', async ({ page, baseURL }) => {
+setup('authenticate', async ({ page }) => {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
