@@ -100,8 +100,6 @@ function ratingDotColor(rating: string): string {
 export function DraftWizard({
   resumes,
   initialJobDescription,
-  initialCompany,
-  initialRole,
 }: DraftWizardProps) {
   // Input state
   const [jobDescription, setJobDescription] = useState(

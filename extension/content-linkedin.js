@@ -2,7 +2,8 @@
   'use strict';
 
   // ─── Constants ────────────────────────────────────────────────────────────
-  const SELECTOR_VERSION = '2026-03-28';
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const SELECTOR_VERSION = '2026-03-28'; // tracks last selector update date
   const APP_URL = 'https://job-application-platform-lake.vercel.app';
   const SIDEBAR_ROOT_ID = 'jac-li-sidebar-root';
   const TOAST_ID = 'jac-li-toast';

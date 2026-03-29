@@ -107,7 +107,7 @@ function ScreeningAnswerCard({
   );
 }
 
-export function ApplicationPackage({ data, onAppend }: Props) {
+export function ApplicationPackage({ data }: Props) {
   const [coverExpanded, setCoverExpanded] = useState(false);
   const [resumeExpanded, setResumeExpanded] = useState(true);
 

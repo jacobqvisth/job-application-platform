@@ -5,7 +5,6 @@ import { BookOpen } from "lucide-react";
 import { AnswerFilters } from "./answer-filters";
 import { QuestionCard } from "./question-card";
 import { LinkAnswerDialog } from "./link-answer-dialog";
-import { CategoryBadge } from "./category-badge";
 import { Badge } from "@/components/ui/badge";
 import type {
   CanonicalQuestionWithAnswers,

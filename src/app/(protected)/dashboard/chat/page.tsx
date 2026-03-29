@@ -579,7 +579,6 @@ export default function ChatPage() {
   const handleSelectConversation = useCallback(async (id: string) => {
     window.history.pushState({}, "", `/dashboard/chat?c=${id}`);
     await loadConversation(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleBack = useCallback(() => {

@@ -25,7 +25,7 @@ export function ApplicationsPageClient({
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [selectedApp, setSelectedApp] = useState<ApplicationWithEvents | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   const [pendingShare, setPendingShare] = useState<{
     company: string;
     role: string;

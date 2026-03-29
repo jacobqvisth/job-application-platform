@@ -128,7 +128,7 @@ export function ApplicationResumes({
           )}
         </div>
         <p className="text-xs text-muted-foreground">
-          Open the editor and click "Tailor for Job" to customize with AI.
+          Open the editor and click &ldquo;Tailor for Job&rdquo; to customize with AI.
         </p>
       </div>
     </div>

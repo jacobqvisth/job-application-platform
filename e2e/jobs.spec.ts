@@ -57,7 +57,7 @@ test.describe('Job Discovery', () => {
       expect(response.status()).toBe(401);
     });
 
-    test('GET /api/jobs/search returns 400 when q param missing', async ({ page, request }) => {
+    test('GET /api/jobs/search returns 400 when q param missing', async ({ request }) => {
       // Need auth for this — skip if unauthenticated (will get 401 instead of 400)
       const response = await request.get('/api/jobs/search');
       expect([400, 401]).toContain(response.status());
