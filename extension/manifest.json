@@ -20,6 +20,7 @@
     "*://*.greenhouse.io/*",
     "*://*.lever.co/*",
     "*://*.linkedin.com/*",
+    "*://*.varbi.com/*",
     "*://job-application-platform-lake.vercel.app/*",
     "*://*/*"
   ],
@@ -44,6 +45,11 @@
     {
       "matches": ["*://*/*"],
       "js": ["content-teamtailor.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["*://*.varbi.com/*"],
+      "js": ["content-varbi.js"],
       "run_at": "document_idle"
     },
     {

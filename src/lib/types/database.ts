@@ -271,6 +271,7 @@ export interface UserProfileData {
   // Contact details (added in migration 004 for browser extension autofill)
   phone: string | null;
   address_line1: string | null;
+  postal_code: string | null;
   city: string | null;
   country: string | null;
   linkedin_url: string | null;
@@ -424,6 +425,7 @@ export interface ExtensionProfile {
   last_name: string | null;   // derived: remaining words of full_name
   phone: string | null;
   address_line1: string | null;
+  postal_code: string | null;
   city: string | null;
   country: string | null;
   linkedin_url: string | null;

@@ -77,6 +77,7 @@ export async function GET(request: NextRequest) {
     last_name: lastName,
     phone: pd?.phone ?? null,
     address_line1: pd?.address_line1 ?? null,
+    postal_code: pd?.postal_code ?? null,
     city: pd?.city ?? null,
     country: pd?.country ?? null,
     linkedin_url: pd?.linkedin_url ?? null,
