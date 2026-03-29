@@ -7,10 +7,13 @@ const LINKEDIN_USERINFO_URL = "https://api.linkedin.com/v2/userinfo";
 
 const SCOPES = ["openid", "profile", "email", "w_member_social"];
 
+const LINKEDIN_CLIENT_ID = (process.env.LINKEDIN_CLIENT_ID ?? "").trim();
+const LINKEDIN_CLIENT_SECRET = (process.env.LINKEDIN_CLIENT_SECRET ?? "").trim();
+
 export function getLinkedInAuthUrl(state: string): string {
   const params = new URLSearchParams({
     response_type: "code",
-    client_id: process.env.LINKEDIN_CLIENT_ID!,
+    client_id: LINKEDIN_CLIENT_ID,
     redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL}/api/linkedin/callback`,
     state,
     scope: SCOPES.join(" "),
@@ -30,8 +33,8 @@ export async function exchangeCodeForTokens(code: string): Promise<TokenResponse
     grant_type: "authorization_code",
     code,
     redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL}/api/linkedin/callback`,
-    client_id: process.env.LINKEDIN_CLIENT_ID!,
-    client_secret: process.env.LINKEDIN_CLIENT_SECRET!,
+    client_id: LINKEDIN_CLIENT_ID,
+    client_secret: LINKEDIN_CLIENT_SECRET,
   });
 
   const response = await fetch(LINKEDIN_TOKEN_URL, {
@@ -52,8 +55,8 @@ export async function refreshLinkedInToken(refreshToken: string): Promise<TokenR
   const params = new URLSearchParams({
     grant_type: "refresh_token",
     refresh_token: refreshToken,
-    client_id: process.env.LINKEDIN_CLIENT_ID!,
-    client_secret: process.env.LINKEDIN_CLIENT_SECRET!,
+    client_id: LINKEDIN_CLIENT_ID,
+    client_secret: LINKEDIN_CLIENT_SECRET,
   });
 
   const response = await fetch(LINKEDIN_TOKEN_URL, {
