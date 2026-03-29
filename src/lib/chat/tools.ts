@@ -18,7 +18,10 @@ import type {
   PracticeEvaluation,
   SearchInsightsResult,
   LinkedInShareData,
+  SaveJobSearchResult,
+  SaveJobToTrackerResult,
 } from './types';
+import { searchAdzunaLive } from './adzuna-search';
 import { fetchInsightsData } from './insights-data';
 import { detectJobSearchStage } from './stage-detection';
 import { detectPatterns } from './pattern-detection';
@@ -28,15 +31,49 @@ import { detectPatterns } from './pattern-detection';
 export function searchJobsTool(userId: string) {
   return tool({
     description:
-      "Search for job listings matching criteria. Use when the user wants to find jobs, look for opportunities, or asks what's available.",
+      "Search for jobs via live job market API. Use when the user wants to find jobs, look for opportunities, or asks what's available. Returns real-time results from job boards.",
     inputSchema: zodSchema(
       z.object({
         query: z.string().describe('Job title or keywords to search for'),
-        location: z.string().optional().describe('City or region filter'),
+        location: z.string().optional().describe('City or region filter (e.g. "Stockholm", "London")'),
         remoteType: z.enum(['remote', 'hybrid', 'onsite']).optional().describe('Remote type preference'),
+        country: z.string().optional().describe('Country code for job search (e.g. "se" for Sweden, "gb" for UK, "us" for US). Default: "se"'),
+        salaryMin: z.number().optional().describe('Minimum annual salary filter'),
       })
     ),
-    execute: async ({ query, location, remoteType }: { query: string; location?: string; remoteType?: 'remote' | 'hybrid' | 'onsite' }): Promise<SearchJobsResult> => {
+    execute: async ({ query, location, remoteType, country, salaryMin }: {
+      query: string;
+      location?: string;
+      remoteType?: 'remote' | 'hybrid' | 'onsite';
+      country?: string;
+      salaryMin?: number;
+    }): Promise<SearchJobsResult> => {
+      // Step 1: Try live Adzuna API search
+      const liveResults = await searchAdzunaLive(userId, query, {
+        location,
+        country: country ?? 'se',
+        remote: remoteType === 'remote',
+        salaryMin,
+      });
+
+      if (liveResults && liveResults.length > 0) {
+        let results = liveResults;
+
+        // Filter by remoteType if hybrid/onsite (remote is handled by Adzuna query)
+        if (remoteType && remoteType !== 'remote') {
+          const filtered = results.filter((r) => r.remoteType === remoteType);
+          if (filtered.length > 0) results = filtered;
+        }
+
+        return {
+          jobs: results.slice(0, 10),
+          total: results.length,
+          query,
+          source: 'live',
+        };
+      }
+
+      // Step 2: Fall back to cached DB results
       const supabase = await createClient();
       let dbQuery = supabase
         .from('job_listings')
@@ -84,7 +121,7 @@ export function searchJobsTool(userId: string) {
         postedAt: l.posted_at,
       }));
 
-      return { jobs, total: jobs.length, query };
+      return { jobs, total: jobs.length, query, source: 'cached' };
     },
   });
 }
@@ -1212,6 +1249,129 @@ export function shareOnLinkedInTool(userId: string) {
         text,
         occasion,
         isConnected: !!connection,
+      };
+    },
+  });
+}
+
+// ─── Tool 15: Save Job Search ────────────────────────────────────────────────
+
+export function saveJobSearchTool(userId: string) {
+  return tool({
+    description:
+      'Save a job search so the system automatically discovers new matching listings daily. Use when the user wants to save a search, set up job alerts, or asks to be notified of new jobs.',
+    inputSchema: zodSchema(
+      z.object({
+        name: z.string().describe('A short name for this search (e.g. "Product Manager Stockholm")'),
+        query: z.string().describe('The search query / keywords'),
+        location: z.string().optional().describe('Location filter'),
+        remoteOnly: z.boolean().optional().default(false).describe('Only remote jobs'),
+        country: z.string().optional().default('se').describe('Country code (e.g. "se", "gb", "us")'),
+        salaryMin: z.number().optional().describe('Minimum salary filter'),
+      })
+    ),
+    execute: async ({ name, query, location, remoteOnly, country, salaryMin }: {
+      name: string;
+      query: string;
+      location?: string;
+      remoteOnly?: boolean;
+      country?: string;
+      salaryMin?: number;
+    }): Promise<SaveJobSearchResult> => {
+      const { createSavedSearch } = await import('@/lib/data/saved-searches');
+
+      const saved = await createSavedSearch(userId, {
+        name,
+        query,
+        location: location ?? null,
+        remote_only: remoteOnly ?? false,
+        country: country ?? 'se',
+        salary_min: salaryMin ?? null,
+        is_active: true,
+      });
+
+      return {
+        success: true,
+        searchId: saved.id,
+        name: saved.name,
+        query: saved.query,
+        message: `Search "${name}" saved! The system will check for new matches daily and you'll see them in your Discovered tab.`,
+      };
+    },
+  });
+}
+
+// ─── Tool 16: Save Job to Tracker ────────────────────────────────────────────
+
+export function saveJobToTrackerTool(userId: string) {
+  return tool({
+    description:
+      'Save a specific job to the application tracker / kanban board. Use when the user wants to save a job, bookmark it, or add it to their tracker from search results.',
+    inputSchema: zodSchema(
+      z.object({
+        title: z.string().describe('Job title'),
+        company: z.string().describe('Company name'),
+        url: z.string().optional().describe('Job posting URL'),
+        location: z.string().optional().describe('Job location'),
+        remoteType: z.enum(['remote', 'hybrid', 'onsite']).optional(),
+        description: z.string().optional().describe('Job description text'),
+        salaryRange: z.string().optional().describe('Salary range text'),
+      })
+    ),
+    execute: async ({ title, company, url, location, remoteType, description, salaryRange }: {
+      title: string;
+      company: string;
+      url?: string;
+      location?: string;
+      remoteType?: 'remote' | 'hybrid' | 'onsite';
+      description?: string;
+      salaryRange?: string;
+    }): Promise<SaveJobToTrackerResult> => {
+      const supabase = await createClient();
+
+      // Check for duplicate (same company + role)
+      const { data: existing } = await supabase
+        .from('applications')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('company', company)
+        .ilike('role', title)
+        .maybeSingle();
+
+      if (existing) {
+        return {
+          success: false,
+          alreadyExists: true,
+          applicationId: existing.id,
+          message: `You already have "${title}" at ${company} in your tracker.`,
+        };
+      }
+
+      const { data: app, error } = await supabase
+        .from('applications')
+        .insert({
+          user_id: userId,
+          company,
+          role: title,
+          url: url ?? null,
+          location: location ?? null,
+          remote_type: remoteType ?? null,
+          job_description: description ?? null,
+          salary_range: salaryRange ?? null,
+          status: 'saved',
+        })
+        .select('id')
+        .single();
+
+      if (error) {
+        return { success: false, alreadyExists: false, message: 'Failed to save job.' };
+      }
+
+      return {
+        success: true,
+        alreadyExists: false,
+        applicationId: app.id,
+        message: `Saved "${title}" at ${company} to your tracker!`,
       };
     },
   });

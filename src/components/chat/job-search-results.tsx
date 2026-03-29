@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ChevronDown, ChevronUp, ExternalLink, MapPin, Briefcase } from "lucide-react";
+import { ChevronDown, ChevronUp, ExternalLink, MapPin, Briefcase, Bookmark } from "lucide-react";
 import type { SearchJobsResult, JobResult } from "@/lib/chat/types";
 
 interface Props {
@@ -84,6 +84,19 @@ function JobCard({ job, onAppend }: { job: JobResult; onAppend?: (content: strin
             size="sm"
             variant="outline"
             className="h-7 text-xs"
+            onClick={() =>
+              onAppend?.(
+                `Save this job to my tracker: ${job.title} at ${job.company}, ${job.location ?? "location unknown"}, URL: ${job.url}`
+              )
+            }
+          >
+            <Bookmark className="h-3 w-3 mr-1" />
+            Save
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs"
             onClick={() => setExpanded(!expanded)}
           >
             {expanded ? (
@@ -123,16 +136,26 @@ export function JobSearchResults({ data, onAppend }: Props) {
             No job listings found matching &ldquo;{data.query}&rdquo;.
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            Try adding a saved search in the Jobs page to discover new listings.
+            {data.source === "cached"
+              ? "These results are from cached searches. Try a more specific query to search live."
+              : "Try different keywords, a broader search, or a different location."}
           </p>
-          <Button
-            size="sm"
-            variant="outline"
-            className="mt-3"
-            onClick={() => onAppend?.("Search for jobs matching my profile")}
-          >
-            Search my profile matches
-          </Button>
+          <div className="flex gap-2 justify-center mt-3">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onAppend?.("Search for product manager jobs in Stockholm")}
+            >
+              Try a sample search
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onAppend?.(`Save a job search alert for: ${data.query}`)}
+            >
+              Save as alert
+            </Button>
+          </div>
         </CardContent>
       </Card>
     );
@@ -143,22 +166,36 @@ export function JobSearchResults({ data, onAppend }: Props) {
       <p className="text-xs text-muted-foreground font-medium">
         {data.total} job{data.total !== 1 ? "s" : ""} found
         {data.query ? ` for "${data.query}"` : ""}
+        {data.source === "live" && (
+          <span className="ml-1 text-green-600">· Live results</span>
+        )}
       </p>
       <div className="space-y-2">
         {displayed.map((job) => (
           <JobCard key={job.id} job={job} onAppend={onAppend} />
         ))}
       </div>
-      {data.jobs.length > 5 && (
+      <div className="flex items-center gap-2 mt-2">
+        {data.jobs.length > 5 && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-xs"
+            onClick={() => setShowAll(!showAll)}
+          >
+            {showAll ? "Show less" : `Show all ${data.jobs.length} jobs`}
+          </Button>
+        )}
         <Button
           size="sm"
-          variant="ghost"
-          className="w-full text-xs"
-          onClick={() => setShowAll(!showAll)}
+          variant="outline"
+          className="text-xs ml-auto"
+          onClick={() => onAppend?.(`Save this job search as an alert: ${data.query}`)}
         >
-          {showAll ? "Show less" : `Show all ${data.jobs.length} jobs`}
+          <Bookmark className="h-3 w-3 mr-1" />
+          Save search
         </Button>
-      )}
+      </div>
     </div>
   );
 }

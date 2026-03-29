@@ -84,6 +84,22 @@ export interface SearchJobsResult {
   jobs: JobResult[];
   total: number;
   query: string;
+  source?: 'live' | 'cached';
+}
+
+export interface SaveJobSearchResult {
+  success: boolean;
+  searchId: string;
+  name: string;
+  query: string;
+  message: string;
+}
+
+export interface SaveJobToTrackerResult {
+  success: boolean;
+  alreadyExists: boolean;
+  applicationId?: string;
+  message: string;
 }
 
 export interface ApplicationStatusResult {
