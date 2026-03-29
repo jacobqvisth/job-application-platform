@@ -58,6 +58,8 @@ interface DraftResult {
   detected_company: string;
   detected_role: string;
   cover_letter: string;
+  letter_type: "cover_letter" | "personligt_brev";
+  language: "sv" | "en";
   tone: string;
   screening_questions: ScreeningQuestion[];
   key_requirements: string[];
@@ -84,6 +86,17 @@ interface DraftWizardProps {
   initialRole?: string;
 }
 
+const SWEDISH_KEYWORDS = [
+  "vi söker", "arbetsuppgifter", "kvalifikationer", "anställning",
+  "tjänst", "arbetsgivare", "meriterande", "erfarenhet av",
+];
+
+function detectLanguage(text: string): "sv" | "en" {
+  const lower = text.toLowerCase();
+  const matches = SWEDISH_KEYWORDS.filter((kw) => lower.includes(kw)).length;
+  return matches >= 2 ? "sv" : "en";
+}
+
 function ratingDotColor(rating: string): string {
   switch (rating) {
     case "strong":
@@ -106,6 +119,7 @@ export function DraftWizard({
     initialJobDescription ?? ""
   );
   const [tone, setTone] = useState<string>("formal");
+  const [language, setLanguage] = useState<"sv" | "en">("en");
   const [resumeId, setResumeId] = useState<string>("");
   const [generating, setGenerating] = useState(false);
 
@@ -136,6 +150,13 @@ export function DraftWizard({
   } | null>(null);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [regeneratingTone, setRegeneratingTone] = useState<string>(tone);
+
+  // Auto-detect language when JD changes
+  useEffect(() => {
+    if (jobDescription.length >= 100) {
+      setLanguage(detectLanguage(jobDescription));
+    }
+  }, [jobDescription]);
 
   // Debounced library match fetch
   useEffect(() => {
@@ -201,6 +222,7 @@ export function DraftWizard({
         body: JSON.stringify({
           jobDescription,
           tone,
+          language,
           resumeId: resumeId || undefined,
           pinnedAnswers,
         }),
@@ -231,6 +253,7 @@ export function DraftWizard({
         body: JSON.stringify({
           jobDescription,
           tone: regeneratingTone,
+          language,
         }),
       });
       const data = await res.json();
@@ -431,17 +454,60 @@ export function DraftWizard({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Cover letter tone</Label>
-              <Select value={tone} onValueChange={setTone}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="formal">Formal</SelectItem>
-                  <SelectItem value="conversational">Conversational</SelectItem>
-                  <SelectItem value="startup">Startup</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label>
+                {language === "sv" ? "Ton" : "Cover letter tone"}
+                <span className="ml-2 text-xs text-muted-foreground">
+                  {language === "sv" ? "🇸🇪 Svenska" : "🇬🇧 English"}
+                </span>
+              </Label>
+              <div className="flex gap-2">
+                <Select value={tone} onValueChange={setTone}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {language === "sv" ? (
+                      <>
+                        <SelectItem value="formal">Formellt</SelectItem>
+                        <SelectItem value="conversational">Personligt</SelectItem>
+                        <SelectItem value="startup">Startup/Informellt</SelectItem>
+                      </>
+                    ) : (
+                      <>
+                        <SelectItem value="formal">Formal</SelectItem>
+                        <SelectItem value="conversational">Conversational</SelectItem>
+                        <SelectItem value="startup">Startup</SelectItem>
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
+                <div className="flex rounded-md border overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setLanguage("sv")}
+                    className={`px-2 py-1 text-sm transition-colors ${
+                      language === "sv"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-background hover:bg-muted"
+                    }`}
+                    title="Svenska"
+                  >
+                    🇸🇪
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLanguage("en")}
+                    className={`px-2 py-1 text-sm transition-colors ${
+                      language === "en"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-background hover:bg-muted"
+                    }`}
+                    title="English"
+                  >
+                    🇬🇧
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -557,7 +623,9 @@ export function DraftWizard({
       {/* Tabs */}
       <Tabs defaultValue="cover-letter">
         <TabsList>
-          <TabsTrigger value="cover-letter">Cover Letter</TabsTrigger>
+          <TabsTrigger value="cover-letter">
+            {result.letter_type === "personligt_brev" ? "Personligt Brev" : "Cover Letter"}
+          </TabsTrigger>
           <TabsTrigger value="screening">Screening Q&amp;A</TabsTrigger>
           <TabsTrigger value="resume">Resume Suggestions</TabsTrigger>
         </TabsList>
@@ -576,9 +644,19 @@ export function DraftWizard({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="formal">Formal</SelectItem>
-                    <SelectItem value="conversational">Conversational</SelectItem>
-                    <SelectItem value="startup">Startup</SelectItem>
+                    {result.language === "sv" ? (
+                      <>
+                        <SelectItem value="formal">Formellt</SelectItem>
+                        <SelectItem value="conversational">Personligt</SelectItem>
+                        <SelectItem value="startup">Startup/Informellt</SelectItem>
+                      </>
+                    ) : (
+                      <>
+                        <SelectItem value="formal">Formal</SelectItem>
+                        <SelectItem value="conversational">Conversational</SelectItem>
+                        <SelectItem value="startup">Startup</SelectItem>
+                      </>
+                    )}
                   </SelectContent>
                 </Select>
               </div>

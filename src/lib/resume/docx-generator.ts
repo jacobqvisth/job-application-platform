@@ -21,6 +21,8 @@ import type {
   LanguagesSectionContent,
   SummarySectionContent,
   CustomSectionContent,
+  ReferencesSectionContent,
+  PhotoSectionContent,
 } from "@/lib/types/database";
 
 function formatDate(dateStr: string | null): string {
@@ -61,6 +63,74 @@ function sectionTitle(title: string): Paragraph[] {
     }),
     sectionDivider(),
   ];
+}
+
+function swedishSectionTitle(title: string): Paragraph[] {
+  return [
+    new Paragraph({
+      text: title.toUpperCase(),
+      heading: HeadingLevel.HEADING_2,
+      spacing: { before: 160, after: 40 },
+      run: {
+        size: 18,
+        bold: true,
+        color: "4B6A8A",
+      },
+    }),
+    new Paragraph({
+      border: {
+        bottom: {
+          color: "4B6A8A",
+          space: 1,
+          style: BorderStyle.SINGLE,
+          size: 6,
+        },
+      },
+      spacing: { after: 80 },
+    }),
+  ];
+}
+
+function referenceParagraphs(section: ResumeSection): Paragraph[] {
+  const c = section.content as ReferencesSectionContent;
+  if (c.showOnRequest) {
+    return [
+      new Paragraph({
+        children: [new TextRun({ text: "Lämnas på begäran", italics: true, color: "555555" })],
+        spacing: { after: 40 },
+      }),
+    ];
+  }
+  const paragraphs: Paragraph[] = [];
+  for (const ref of c.items) {
+    paragraphs.push(
+      new Paragraph({
+        children: [new TextRun({ text: ref.name, bold: true })],
+        spacing: { before: 80, after: 20 },
+      })
+    );
+    if (ref.title || ref.company) {
+      paragraphs.push(
+        new Paragraph({
+          children: [
+            new TextRun({ text: [ref.title, ref.company].filter(Boolean).join(", "), color: "555555" }),
+          ],
+          spacing: { after: 20 },
+        })
+      );
+    }
+    if (ref.phone || ref.email) {
+      paragraphs.push(
+        new Paragraph({
+          children: [
+            new TextRun({ text: [ref.phone, ref.email].filter(Boolean).join(" · "), color: "777777", size: 18 }),
+          ],
+          spacing: { after: 20 },
+        })
+      );
+    }
+  }
+  return paragraphs;
 }
 
 function sectionParagraphs(section: ResumeSection): Paragraph[] {
@@ -194,6 +264,13 @@ function sectionParagraphs(section: ResumeSection): Paragraph[] {
       );
       break;
     }
+    case "references": {
+      paragraphs.push(...referenceParagraphs(section));
+      break;
+    }
+    case "photo":
+      // Photo is handled in the header; skip as a body section
+      break;
   }
 
   return paragraphs;
@@ -209,25 +286,81 @@ export async function generateDocx(
 
   const children: Paragraph[] = [];
 
-  // Name header
-  children.push(
-    new Paragraph({
-      children: [new TextRun({ text: name, bold: true, size: 36 })],
-      alignment: AlignmentType.CENTER,
-      spacing: { after: 160 },
-      border: {
-        bottom: {
-          color: "333333",
-          space: 1,
-          style: BorderStyle.SINGLE,
-          size: 6,
-        },
-      },
-    })
-  );
+  if (content.template === "swedish") {
+    // Swedish template: name header with accent underline, single-column body (no photo in DOCX)
+    const photoSection = visibleSections.find((s) => s.type === "photo");
+    const photoUrl = photoSection
+      ? (photoSection.content as PhotoSectionContent).url
+      : null;
 
-  // For modern template, build two-column layout using a table
-  if (content.template === "modern") {
+    // Header paragraph
+    const headerChildren: (TextRun | import("docx").ImageRun)[] = [
+      new TextRun({ text: name, bold: true, size: 32, color: "1a1a1a" }),
+    ];
+
+    if (photoUrl) {
+      // Attempt to embed photo; on failure gracefully skip
+      try {
+        const photoRes = await fetch(photoUrl);
+        if (photoRes.ok) {
+          const photoBuffer = await photoRes.arrayBuffer();
+          const { ImageRun } = await import("docx");
+          headerChildren.unshift(
+            new ImageRun({
+              data: Buffer.from(photoBuffer),
+              transformation: { width: 55, height: 70 },
+              type: "jpg",
+            })
+          );
+        }
+      } catch {
+        // Skip photo if fetch fails
+      }
+    }
+
+    children.push(
+      new Paragraph({
+        children: headerChildren,
+        spacing: { after: 160 },
+        border: {
+          bottom: {
+            color: "4B6A8A",
+            space: 1,
+            style: BorderStyle.SINGLE,
+            size: 8,
+          },
+        },
+      })
+    );
+
+    const bodySections = visibleSections.filter((s) => s.type !== "photo");
+    for (const section of bodySections) {
+      children.push(...swedishSectionTitle(section.title));
+      children.push(...sectionParagraphs(section));
+    }
+  } else {
+    // Name header for non-Swedish templates
+    children.push(
+      new Paragraph({
+        children: [new TextRun({ text: name, bold: true, size: 36 })],
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 160 },
+        border: {
+          bottom: {
+            color: "333333",
+            space: 1,
+            style: BorderStyle.SINGLE,
+            size: 6,
+          },
+        },
+      })
+    );
+  }
+
+  // For modern template, build two-column layout using a table (Swedish already handled above)
+  if (content.template === "swedish") {
+    // Body already built above — nothing to do here
+  } else if (content.template === "modern") {
     const sidebarTypes = ["skills", "languages", "certifications"];
     const sidebarSections = visibleSections.filter((s) =>
       sidebarTypes.includes(s.type)
@@ -292,6 +425,7 @@ export async function generateDocx(
               right: content.template === "compact" ? 720 : 1080,
               bottom: content.template === "compact" ? 720 : 1080,
               left: content.template === "compact" ? 720 : 1080,
+              // Swedish uses A4 default margins (already A4 default for docx)
             },
           },
         },

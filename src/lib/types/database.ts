@@ -134,7 +134,7 @@ export interface EmailWithApplication extends Email {
 }
 
 // Resume types
-export type ResumeTemplate = "clean" | "modern" | "compact";
+export type ResumeTemplate = "clean" | "modern" | "compact" | "swedish";
 
 export interface SummarySectionContent {
   text: string;
@@ -212,6 +212,25 @@ export interface CustomSectionContent {
   text: string;
 }
 
+export interface ReferenceItem {
+  id: string;
+  name: string;
+  title: string;
+  company: string;
+  phone?: string;
+  email?: string;
+  relationship?: string;
+}
+
+export interface ReferencesSectionContent {
+  showOnRequest: boolean;
+  items: ReferenceItem[];
+}
+
+export interface PhotoSectionContent {
+  url: string | null;
+}
+
 export type ResumeSectionType =
   | "summary"
   | "experience"
@@ -219,7 +238,9 @@ export type ResumeSectionType =
   | "skills"
   | "certifications"
   | "languages"
-  | "custom";
+  | "custom"
+  | "references"
+  | "photo";
 
 export type ResumeSectionContent =
   | SummarySectionContent
@@ -228,7 +249,9 @@ export type ResumeSectionContent =
   | SkillsSectionContent
   | CertificationsSectionContent
   | LanguagesSectionContent
-  | CustomSectionContent;
+  | CustomSectionContent
+  | ReferencesSectionContent
+  | PhotoSectionContent;
 
 export interface ResumeSection {
   id: string;

@@ -10,6 +10,8 @@ import type {
   LanguagesSectionContent,
   SummarySectionContent,
   CustomSectionContent,
+  ReferencesSectionContent,
+  PhotoSectionContent,
 } from "@/lib/types/database";
 
 interface ResumePreviewProps {
@@ -130,6 +132,30 @@ function SectionContent({ section }: { section: ResumeSection }) {
       const content = section.content as CustomSectionContent;
       return <p className="text-xs leading-relaxed whitespace-pre-wrap">{content.text}</p>;
     }
+    case "references": {
+      const content = section.content as ReferencesSectionContent;
+      if (content.showOnRequest) {
+        return <p className="text-xs text-gray-600 italic">Lämnas på begäran</p>;
+      }
+      return (
+        <div className="space-y-2">
+          {content.items.map((ref) => (
+            <div key={ref.id}>
+              <span className="text-xs font-semibold">{ref.name}</span>
+              {ref.title && ref.company && (
+                <span className="text-xs text-gray-600"> · {ref.title}, {ref.company}</span>
+              )}
+              <div className="flex gap-3">
+                {ref.phone && <span className="text-[10px] text-gray-500">{ref.phone}</span>}
+                {ref.email && <span className="text-[10px] text-gray-500">{ref.email}</span>}
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+    case "photo":
+      return null; // Rendered in header area by Swedish template
     default:
       return null;
   }
@@ -253,12 +279,77 @@ function CompactTemplate({
   );
 }
 
+const SWEDISH_ACCENT = "#4B6A8A";
+
+function SwedishTemplate({
+  content,
+  name,
+}: {
+  content: ResumeContent;
+  name?: string;
+}) {
+  const allSections = content.sections
+    .filter((s) => s.visible)
+    .sort((a, b) => a.order - b.order);
+
+  const photoSection = allSections.find((s) => s.type === "photo");
+  const photoUrl = photoSection
+    ? (photoSection.content as PhotoSectionContent).url
+    : null;
+
+  const bodySections = allSections.filter(
+    (s) => s.type !== "photo"
+  );
+
+  return (
+    <div className="bg-white p-6 font-sans" style={{ minHeight: "100%" }}>
+      {/* Header */}
+      <div
+        className="mb-5 pb-4"
+        style={{ borderBottom: `2px solid ${SWEDISH_ACCENT}` }}
+      >
+        <div className="flex items-start gap-4">
+          {photoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={photoUrl}
+              alt="Profile"
+              className="rounded"
+              style={{ width: 56, height: 70, objectFit: "cover", flexShrink: 0 }}
+            />
+          )}
+          <div className="flex-1">
+            {name && (
+              <h1 className="text-base font-bold tracking-wide mb-0.5">{name}</h1>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Body sections */}
+      {bodySections.map((section) => (
+        <div key={section.id} className="mb-3">
+          <h2
+            className="text-[9px] font-bold uppercase tracking-widest pb-0.5 mb-1.5"
+            style={{ color: SWEDISH_ACCENT, borderBottom: `1px solid ${SWEDISH_ACCENT}` }}
+          >
+            {section.title}
+          </h2>
+          <SectionContent section={section} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function ResumePreview({ content, name, scale = 1 }: ResumePreviewProps) {
   const Template =
     content.template === "modern"
       ? ModernTemplate
       : content.template === "compact"
       ? CompactTemplate
+      : content.template === "swedish"
+      ? SwedishTemplate
       : CleanTemplate;
 
   return (

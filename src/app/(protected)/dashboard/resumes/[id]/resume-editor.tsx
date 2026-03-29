@@ -54,6 +54,9 @@ import type {
   CertificationItem,
   LanguageItem,
   LanguageProficiency,
+  ReferencesSectionContent,
+  ReferenceItem,
+  PhotoSectionContent,
 } from "@/lib/types/database";
 
 interface ResumeEditorProps {
@@ -64,6 +67,72 @@ type SaveState = "saved" | "saving" | "unsaved";
 
 function newId() {
   return crypto.randomUUID();
+}
+
+const SWEDISH_SECTION_DEFAULTS: Record<string, string> = {
+  summary: "Profil",
+  experience: "Arbetslivserfarenhet",
+  education: "Utbildning",
+  skills: "Kompetenser",
+  languages: "Språk",
+  references: "Referenser",
+  certifications: "Certifieringar",
+  custom: "Övrigt",
+};
+
+function ensureSwedishSections(content: ResumeContent): ResumeContent {
+  const existing = new Set(content.sections.map((s) => s.type));
+  const additions: ResumeSection[] = [];
+  const maxOrder = content.sections.reduce((m, s) => Math.max(m, s.order), -1);
+
+  if (!existing.has("photo")) {
+    additions.push({
+      id: newId(),
+      type: "photo",
+      title: "Foto",
+      visible: true,
+      order: -1,
+      content: { url: null } as PhotoSectionContent,
+    });
+  }
+  if (!existing.has("references")) {
+    additions.push({
+      id: newId(),
+      type: "references",
+      title: SWEDISH_SECTION_DEFAULTS.references,
+      visible: true,
+      order: maxOrder + 1,
+      content: { showOnRequest: true, items: [] } as ReferencesSectionContent,
+    });
+  }
+
+  if (additions.length === 0) {
+    return content;
+  }
+
+  // Rename existing sections to Swedish titles if they still have English defaults
+  const englishDefaults: Record<string, string> = {
+    summary: "Summary",
+    experience: "Experience",
+    education: "Education",
+    skills: "Skills",
+    languages: "Languages",
+    certifications: "Certifications",
+  };
+
+  const updatedSections = content.sections.map((s) => {
+    const swedishTitle = SWEDISH_SECTION_DEFAULTS[s.type];
+    const englishTitle = englishDefaults[s.type];
+    if (swedishTitle && englishTitle && s.title === englishTitle) {
+      return { ...s, title: swedishTitle };
+    }
+    return s;
+  });
+
+  return {
+    ...content,
+    sections: [...additions, ...updatedSections],
+  };
 }
 
 async function downloadFile(
@@ -151,7 +220,11 @@ export function ResumeEditor({ resume }: ResumeEditorProps) {
   }
 
   function updateTemplate(template: ResumeTemplate) {
-    updateContent({ ...content, template });
+    let newContent: ResumeContent = { ...content, template };
+    if (template === "swedish") {
+      newContent = ensureSwedishSections(newContent);
+    }
+    updateContent(newContent);
   }
 
   function updateSection(sectionId: string, updates: Partial<ResumeSection>) {
@@ -335,6 +408,7 @@ export function ResumeEditor({ resume }: ResumeEditorProps) {
               <SelectItem value="clean">Clean</SelectItem>
               <SelectItem value="modern">Modern</SelectItem>
               <SelectItem value="compact">Compact</SelectItem>
+              <SelectItem value="swedish">Swedish CV</SelectItem>
             </SelectContent>
           </Select>
           <Button
@@ -397,7 +471,9 @@ export function ResumeEditor({ resume }: ResumeEditorProps) {
               onToggleExpand={() => toggleSection(section.id)}
               onUpdate={(updates) => updateSection(section.id, updates)}
               onDelete={
-                section.type === "custom"
+                section.type === "custom" ||
+                section.type === "photo" ||
+                section.type === "references"
                   ? () => deleteSection(section.id)
                   : undefined
               }
@@ -748,6 +824,24 @@ function SectionContentEditor({
           placeholder="Section content..."
           rows={4}
           className="text-sm"
+        />
+      );
+    }
+    case "references": {
+      const c = section.content as ReferencesSectionContent;
+      return (
+        <ReferencesEditor
+          content={c}
+          onChange={onUpdateContent}
+        />
+      );
+    }
+    case "photo": {
+      const c = section.content as PhotoSectionContent;
+      return (
+        <PhotoEditor
+          content={c}
+          onChange={onUpdateContent}
         />
       );
     }
@@ -1277,6 +1371,243 @@ function LanguagesEditor({
         <Plus className="size-3" />
         Add Language
       </Button>
+    </div>
+  );
+}
+
+function ReferencesEditor({
+  content,
+  onChange,
+}: {
+  content: ReferencesSectionContent;
+  onChange: (content: ReferencesSectionContent) => void;
+}) {
+  function addRef() {
+    onChange({
+      ...content,
+      items: [
+        ...content.items,
+        { id: newId(), name: "", title: "", company: "" },
+      ],
+    });
+  }
+
+  function updateRef(id: string, field: keyof ReferenceItem, value: string) {
+    onChange({
+      ...content,
+      items: content.items.map((r) =>
+        r.id === id ? { ...r, [field]: value } : r
+      ),
+    });
+  }
+
+  function removeRef(id: string) {
+    onChange({ ...content, items: content.items.filter((r) => r.id !== id) });
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <Label className="text-xs">Show on request</Label>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={content.showOnRequest}
+          onClick={() =>
+            onChange({ ...content, showOnRequest: !content.showOnRequest })
+          }
+          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+            content.showOnRequest ? "bg-primary" : "bg-muted-foreground/30"
+          }`}
+        >
+          <span
+            className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+              content.showOnRequest ? "translate-x-4" : "translate-x-1"
+            }`}
+          />
+        </button>
+      </div>
+
+      {content.showOnRequest ? (
+        <p className="text-xs text-muted-foreground italic">
+          Will display as &quot;Lämnas på begäran&quot;
+        </p>
+      ) : (
+        <>
+          {content.items.map((ref) => (
+            <div key={ref.id} className="rounded border p-3 space-y-2">
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                  onClick={() => removeRef(ref.id)}
+                >
+                  <Trash2 className="size-3" />
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="col-span-2 space-y-1">
+                  <Label className="text-xs">Name</Label>
+                  <Input
+                    value={ref.name}
+                    onChange={(e) => updateRef(ref.id, "name", e.target.value)}
+                    placeholder="Full name"
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Title</Label>
+                  <Input
+                    value={ref.title}
+                    onChange={(e) => updateRef(ref.id, "title", e.target.value)}
+                    placeholder="Job title"
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Company</Label>
+                  <Input
+                    value={ref.company}
+                    onChange={(e) =>
+                      updateRef(ref.id, "company", e.target.value)
+                    }
+                    placeholder="Company"
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Phone</Label>
+                  <Input
+                    value={ref.phone ?? ""}
+                    onChange={(e) => updateRef(ref.id, "phone", e.target.value)}
+                    placeholder="+46 70 000 00 00"
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Email</Label>
+                  <Input
+                    value={ref.email ?? ""}
+                    onChange={(e) => updateRef(ref.id, "email", e.target.value)}
+                    placeholder="email@example.com"
+                    className="h-8 text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={addRef}
+            className="w-full text-xs"
+          >
+            <Plus className="size-3" />
+            Add Reference
+          </Button>
+        </>
+      )}
+    </div>
+  );
+}
+
+function PhotoEditor({
+  content,
+  onChange,
+}: {
+  content: PhotoSectionContent;
+  onChange: (content: PhotoSectionContent) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+
+  // Get resume ID from the URL since it's not passed as a prop
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const pathParts = window.location.pathname.split("/");
+    const id = pathParts[pathParts.length - 1];
+
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("photo", file);
+      form.append("resumeId", id);
+
+      const res = await fetch("/api/resume/photo", {
+        method: "POST",
+        body: form,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error ?? "Photo upload failed");
+        return;
+      }
+      onChange({ url: data.url });
+    } catch {
+      toast.error("Photo upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handleRemove() {
+    const pathParts = window.location.pathname.split("/");
+    const id = pathParts[pathParts.length - 1];
+
+    try {
+      await fetch("/api/resume/photo", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resumeId: id }),
+      });
+    } catch {
+      // Best-effort delete
+    }
+    onChange({ url: null });
+  }
+
+  return (
+    <div className="space-y-2">
+      {content.url ? (
+        <div className="flex items-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={content.url}
+            alt="Profile photo"
+            className="rounded"
+            style={{ width: 48, height: 60, objectFit: "cover" }}
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-xs text-destructive hover:text-destructive"
+            onClick={handleRemove}
+          >
+            <Trash2 className="size-3 mr-1" />
+            Remove photo
+          </Button>
+        </div>
+      ) : (
+        <label className="flex cursor-pointer flex-col items-center justify-center rounded border-2 border-dashed border-muted-foreground/30 p-4 text-center hover:border-muted-foreground/50 transition-colors">
+          {uploading ? (
+            <Loader2 className="size-5 animate-spin text-muted-foreground mb-1" />
+          ) : (
+            <Plus className="size-5 text-muted-foreground mb-1" />
+          )}
+          <span className="text-xs text-muted-foreground">
+            {uploading ? "Uploading..." : "Click to upload photo (JPEG, PNG, WebP · max 5MB)"}
+          </span>
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="sr-only"
+            onChange={handleFileChange}
+            disabled={uploading}
+          />
+        </label>
+      )}
     </div>
   );
 }

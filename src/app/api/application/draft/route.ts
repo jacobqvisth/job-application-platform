@@ -33,11 +33,13 @@ export async function POST(req: NextRequest) {
     tone = "formal",
     resumeId,
     pinnedAnswers = {},
+    language,
   } = (await req.json()) as {
     jobDescription?: string;
     tone?: string;
     resumeId?: string;
     pinnedAnswers?: Record<string, string>;
+    language?: "sv" | "en";
   };
 
   if (!jobDescription) {
@@ -121,21 +123,60 @@ ${
           .join("\n\n")}`
       : "";
 
-  const toneDescription =
-    {
-      formal: "professional and formal",
-      conversational: "warm and conversational",
-      startup: "energetic and startup-friendly",
-    }[tone as "formal" | "conversational" | "startup"] ??
-    "professional and formal";
+  // Auto-detect Swedish if not specified
+  const SWEDISH_KEYWORDS = [
+    "vi söker", "arbetsuppgifter", "kvalifikationer", "anställning",
+    "tjänst", "arbetsgivare", "arbetstagare", "lön", "ansökan",
+    "meriterande", "erfarenhet av", "vi erbjuder", "om oss",
+  ];
+  const jdLower = jobDescription.toLowerCase();
+  const isSwedish =
+    language === "sv" ||
+    (language !== "en" &&
+      SWEDISH_KEYWORDS.filter((kw) => jdLower.includes(kw)).length >= 2);
+
+  const toneDescription = isSwedish
+    ? ({
+        formal: "formellt och professionellt",
+        conversational: "personligt och varmt men professionellt",
+        startup: "informellt och startup-vänligt",
+      }[tone as "formal" | "conversational" | "startup"] ??
+      "formellt och professionellt")
+    : ({
+        formal: "professional and formal",
+        conversational: "warm and conversational",
+        startup: "energetic and startup-friendly",
+      }[tone as "formal" | "conversational" | "startup"] ??
+      "professional and formal");
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+  const coverLetterInstruction = isSwedish
+    ? `1. Skriv ett PERSONLIGT BREV på svenska (INTE ett amerikanskt cover letter):
+   - Det ska vara personligt och reflekterande, inte bara en sammanfattning av CV:t
+   - Skriv i första person med en varm men professionell ton (${toneDescription})
+   - Besvara: Vem är jag? Varför detta företag? Varför denna roll? Vad kan jag bidra med?
+   - Längd: ca 250-400 ord (ungefär en halv till en hel A4-sida)
+   - Börja INTE med "Jag söker tjänsten som..." — det är för formellt och tråkigt
+   - Börja istället med något som visar genuin motivation eller en relevant koppling
+   - Avsluta med en mening om att du ser fram emot att berätta mer på en intervju
+   - Undvik överdrivna superlativer och självförhärligande — svensk arbetskultur värderar laganda och ödmjukhet
+   - Om rekryterarens namn finns i annonsen, adressera brevet till hen
+   - FORMAT: Börja med "[Stad], [dagens datum]", sedan "[Tilltalande]", sedan brödtext i 3-4 stycken, sedan avslutning`
+    : `1. Write a cover letter in a ${toneDescription} tone`;
+
+  const screeningInstruction = isSwedish
+    ? "2. Härleda minst 3 sannolika screeningfrågor från platsannonsen och skriv starka svar på svenska"
+    : "2. Infer at least 3 likely screening questions from the job description and write strong answers";
+
+  const systemPrompt = isSwedish
+    ? "Du är en professionell jobbansökningsassistent för den svenska arbetsmarknaden. Du hjälper kandidater att skapa övertygande och autentiska ansökningsmaterial baserat på deras bakgrund. Returnera alltid giltig JSON utan markdown-kodblock."
+    : "You are a professional job application assistant. You help candidates craft compelling, authentic application materials based on their background. Always return valid JSON with no markdown code blocks.";
 
   const response = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 4096,
-    system:
-      "You are a professional job application assistant. You help candidates craft compelling, authentic application materials based on their background. Always return valid JSON with no markdown code blocks.",
+    system: systemPrompt,
     messages: [
       {
         role: "user",
@@ -150,8 +191,8 @@ JOB DESCRIPTION:
 ${jobDescription.slice(0, 3000)}
 
 INSTRUCTIONS:
-1. Write a cover letter in a ${toneDescription} tone
-2. Infer at least 3 likely screening questions from the job description and write strong answers
+${coverLetterInstruction}
+${screeningInstruction}
 3. Detect the company name and role title from the JD
 4. Score the candidate's match (0-100) and provide brief notes
 5. List the key requirements from the JD
@@ -324,6 +365,8 @@ Only suggest changes that meaningfully improve alignment with the job descriptio
     detected_company: draftResult.detected_company ?? "Unknown",
     detected_role: draftResult.detected_role ?? "Unknown",
     cover_letter: draftResult.cover_letter ?? "",
+    letter_type: isSwedish ? "personligt_brev" : "cover_letter",
+    language: isSwedish ? "sv" : "en",
     tone,
     screening_questions: processedQuestions,
     key_requirements: draftResult.key_requirements ?? [],

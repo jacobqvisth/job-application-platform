@@ -197,3 +197,17 @@ Phase 10c: Job discovery improvements, saved search management, and push notific
 - **Migration created:** `supabase/migrations/013_varbi_postal_code.sql` — adds `postal_code text` column to `user_profile_data`. Must be applied via Supabase MCP before deploying.
 - **Test result:** `npx tsc --noEmit` — 0 errors. `npm run lint` — 0 warnings. `npm run build` fails only on the pre-existing Supabase env-var issue in the worktree (not caused by this session's changes).
 - **Next step:** Apply migration `013_varbi_postal_code.sql` via Supabase MCP, reload extension in Chrome, test Quick Apply on a real Varbi position (e.g. migrationsverket.varbi.com), test login-required flow on uu.varbi.com, verify Save to Tracker works from a job detail page.
+
+---
+
+## Phase S3 — Swedish CV & Personligt Brev
+
+**Date:** 2026-03-29
+
+### Session summary (5 bullets)
+
+- **What was built:** Full Swedish CV support: new `"swedish"` template added to `ResumeTemplate` type; `SwedishTemplate` HTML preview component with optional photo header and blue-gray accent (`#4B6A8A`) section titles; `SwedishResumePDF` using `@react-pdf/renderer` with A4 format and photo embedding; Swedish DOCX export in `docx-generator.ts` with accent-coloured headings; new `references` and `photo` section types (`ReferencesSectionContent`, `PhotoSectionContent`, `ReferenceItem`) added to the data model.
+- **Files changed:** `src/lib/types/database.ts` (new template + section types), `src/components/resumes/resume-preview.tsx` (SwedishTemplate component), `src/lib/resume/pdf-generator.tsx` (SwedishResumePDF), `src/lib/resume/docx-generator.ts` (Swedish branch + reference/photo handling), `src/app/(protected)/dashboard/resumes/[id]/resume-editor.tsx` (Swedish template picker, photo upload UI, references editor, auto-add Swedish default sections on template switch), `src/app/api/resume/photo/route.ts` (new — photo upload/delete to Supabase Storage bucket `resume-photos`).
+- **Personligt Brev generation:** `src/app/api/application/draft/route.ts` extended with optional `language: "sv" | "en"` parameter and auto-detection from job description keywords; Swedish path replaces system prompt and cover letter instruction with Swedish-specific "personligt brev" guidance (warm/personal tone, Swedish norms, correct format with date + greeting + 3–4 paragraphs + sign-off); response adds `letter_type` and `language` fields while keeping `cover_letter` for backwards compat. `src/components/draft/draft-wizard.tsx` gets a 🇸🇪/🇬🇧 language toggle, auto-detects Swedish from JD, localises tone labels, and shows "Personligt Brev" tab title when Swedish.
+- **Test result:** `npx tsc --noEmit` — 0 errors. `npm run lint` — 0 warnings. `npm run build` compiles successfully; pre-render fails only on missing Supabase env vars in worktree (pre-existing, unrelated).
+- **Next step:** Create `resume-photos` Supabase Storage bucket (public) via Supabase MCP before deploying. After deploy, manually test: (1) create resume with Swedish template → verify preview renders with accent titles, (2) upload photo → check preview, (3) export PDF + DOCX, (4) generate personligt brev from Swedish job ad → verify Swedish output format.

@@ -5,6 +5,7 @@ import {
   View,
   StyleSheet,
   Font,
+  Image,
 } from "@react-pdf/renderer";
 import type {
   ResumeContent,
@@ -16,6 +17,8 @@ import type {
   LanguagesSectionContent,
   SummarySectionContent,
   CustomSectionContent,
+  ReferencesSectionContent,
+  PhotoSectionContent,
 } from "@/lib/types/database";
 
 // Use built-in PDF fonts only
@@ -574,6 +577,247 @@ function CompactResume({ content, name }: { content: ResumeContent; name: string
   );
 }
 
+// Swedish Template
+const SWEDISH_ACCENT_COLOR = "#4B6A8A";
+
+const swedishStyles = StyleSheet.create({
+  page: {
+    padding: 40,
+    fontFamily: "Helvetica",
+    fontSize: 10,
+    color: "#1a1a1a",
+  },
+  header: {
+    marginBottom: 14,
+    paddingBottom: 8,
+    borderBottomWidth: 1.5,
+    borderBottomColor: SWEDISH_ACCENT_COLOR,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  photo: {
+    width: 52,
+    height: 65,
+    borderRadius: 2,
+    objectFit: "cover",
+  },
+  headerText: {
+    flex: 1,
+  },
+  name: {
+    fontSize: 16,
+    fontFamily: "Helvetica-Bold",
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  section: {
+    marginBottom: 10,
+  },
+  sectionTitle: {
+    fontSize: 7,
+    fontFamily: "Helvetica-Bold",
+    textTransform: "uppercase",
+    letterSpacing: 2,
+    color: SWEDISH_ACCENT_COLOR,
+    borderBottomWidth: 0.5,
+    borderBottomColor: SWEDISH_ACCENT_COLOR,
+    paddingBottom: 2,
+    marginBottom: 5,
+  },
+  summaryText: {
+    fontSize: 9,
+    lineHeight: 1.5,
+    color: "#333333",
+  },
+  jobHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+  },
+  jobTitle: { fontSize: 9, fontFamily: "Helvetica-Bold" },
+  jobDate: { fontSize: 8, color: "#555555" },
+  jobCompany: { fontSize: 9, color: "#555555" },
+  bullet: { flexDirection: "row", marginTop: 2 },
+  bulletDot: { fontSize: 8, marginRight: 4, marginTop: 1 },
+  bulletText: { fontSize: 8, flex: 1, lineHeight: 1.4 },
+  experienceItem: { marginBottom: 8 },
+  skillRow: { flexDirection: "row", marginBottom: 2, flexWrap: "wrap" },
+  skillBold: { fontSize: 8, fontFamily: "Helvetica-Bold", marginRight: 4 },
+  skillText: { fontSize: 8, color: "#444444", flex: 1 },
+  certItem: { flexDirection: "row", justifyContent: "space-between", marginBottom: 2 },
+  certName: { fontSize: 8 },
+  certDate: { fontSize: 8, color: "#555555" },
+  langRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  langItem: { fontSize: 8 },
+  refItem: { marginBottom: 5 },
+  refName: { fontSize: 9, fontFamily: "Helvetica-Bold" },
+  refDetail: { fontSize: 8, color: "#555555" },
+  refContact: { fontSize: 8, color: "#555555" },
+  refOnRequest: { fontSize: 9, color: "#555555", fontStyle: "italic" },
+});
+
+function SwedishSectionContent({ section }: { section: ResumeSection }) {
+  switch (section.type) {
+    case "summary": {
+      const c = section.content as SummarySectionContent;
+      return <Text style={swedishStyles.summaryText}>{c.text}</Text>;
+    }
+    case "experience": {
+      const c = section.content as ExperienceSectionContent;
+      return (
+        <View>
+          {c.items.map((item) => (
+            <View key={item.id} style={swedishStyles.experienceItem}>
+              <View style={swedishStyles.jobHeader}>
+                <Text style={swedishStyles.jobTitle}>{item.title}</Text>
+                <Text style={swedishStyles.jobDate}>
+                  {formatDate(item.startDate)} – {formatDate(item.endDate)}
+                </Text>
+              </View>
+              <Text style={swedishStyles.jobCompany}>
+                {item.company}{item.location ? ` · ${item.location}` : ""}
+              </Text>
+              {item.bullets.filter(Boolean).map((bullet, i) => (
+                <View key={i} style={swedishStyles.bullet}>
+                  <Text style={swedishStyles.bulletDot}>•</Text>
+                  <Text style={swedishStyles.bulletText}>{bullet}</Text>
+                </View>
+              ))}
+            </View>
+          ))}
+        </View>
+      );
+    }
+    case "education": {
+      const c = section.content as EducationSectionContent;
+      return (
+        <View>
+          {c.items.map((item) => (
+            <View key={item.id} style={swedishStyles.experienceItem}>
+              <View style={swedishStyles.jobHeader}>
+                <Text style={swedishStyles.jobTitle}>{item.institution}</Text>
+                <Text style={swedishStyles.jobDate}>
+                  {formatDate(item.startDate)} – {formatDate(item.endDate)}
+                </Text>
+              </View>
+              <Text style={swedishStyles.jobCompany}>
+                {item.degree}{item.field ? `, ${item.field}` : ""}
+                {item.gpa ? ` · GPA: ${item.gpa}` : ""}
+              </Text>
+            </View>
+          ))}
+        </View>
+      );
+    }
+    case "skills": {
+      const c = section.content as SkillsSectionContent;
+      return (
+        <View>
+          {c.categories.filter((cat) => cat.skills.length > 0).map((cat) => (
+            <View key={cat.id} style={swedishStyles.skillRow}>
+              <Text style={swedishStyles.skillBold}>{cat.name}:</Text>
+              <Text style={swedishStyles.skillText}> {cat.skills.join(", ")}</Text>
+            </View>
+          ))}
+        </View>
+      );
+    }
+    case "certifications": {
+      const c = section.content as CertificationsSectionContent;
+      return (
+        <View>
+          {c.items.map((item) => (
+            <View key={item.id} style={swedishStyles.certItem}>
+              <Text style={swedishStyles.certName}>{item.name} · {item.issuer}</Text>
+              <Text style={swedishStyles.certDate}>{formatDate(item.date)}</Text>
+            </View>
+          ))}
+        </View>
+      );
+    }
+    case "languages": {
+      const c = section.content as LanguagesSectionContent;
+      return (
+        <View style={swedishStyles.langRow}>
+          {c.items.map((item) => (
+            <Text key={item.id} style={swedishStyles.langItem}>
+              {item.language} ({item.proficiency})
+            </Text>
+          ))}
+        </View>
+      );
+    }
+    case "references": {
+      const c = section.content as ReferencesSectionContent;
+      if (c.showOnRequest) {
+        return <Text style={swedishStyles.refOnRequest}>Lämnas på begäran</Text>;
+      }
+      return (
+        <View>
+          {c.items.map((ref) => (
+            <View key={ref.id} style={swedishStyles.refItem}>
+              <Text style={swedishStyles.refName}>{ref.name}</Text>
+              {(ref.title || ref.company) && (
+                <Text style={swedishStyles.refDetail}>
+                  {[ref.title, ref.company].filter(Boolean).join(", ")}
+                </Text>
+              )}
+              {(ref.phone || ref.email) && (
+                <Text style={swedishStyles.refContact}>
+                  {[ref.phone, ref.email].filter(Boolean).join(" · ")}
+                </Text>
+              )}
+            </View>
+          ))}
+        </View>
+      );
+    }
+    case "custom": {
+      const c = section.content as CustomSectionContent;
+      return <Text style={swedishStyles.summaryText}>{c.text}</Text>;
+    }
+    default:
+      return null;
+  }
+}
+
+function SwedishResume({ content, name }: { content: ResumeContent; name: string }) {
+  const allSections = content.sections
+    .filter((s) => s.visible)
+    .sort((a, b) => a.order - b.order);
+
+  const photoSection = allSections.find((s) => s.type === "photo");
+  const photoUrl = photoSection
+    ? (photoSection.content as PhotoSectionContent).url
+    : null;
+
+  const bodySections = allSections.filter((s) => s.type !== "photo");
+
+  return (
+    <Page size="A4" style={swedishStyles.page}>
+      {/* Header */}
+      <View style={swedishStyles.header}>
+        {photoUrl && (
+          // eslint-disable-next-line jsx-a11y/alt-text
+          <Image src={photoUrl} style={swedishStyles.photo} />
+        )}
+        <View style={swedishStyles.headerText}>
+          <Text style={swedishStyles.name}>{name}</Text>
+        </View>
+      </View>
+
+      {/* Body sections */}
+      {bodySections.map((section) => (
+        <View key={section.id} style={swedishStyles.section}>
+          <Text style={swedishStyles.sectionTitle}>{section.title}</Text>
+          <SwedishSectionContent section={section} />
+        </View>
+      ))}
+    </Page>
+  );
+}
+
 export function ResumePDF({
   content,
   name,
@@ -586,6 +830,8 @@ export function ResumePDF({
       ? ModernResume
       : content.template === "compact"
       ? CompactResume
+      : content.template === "swedish"
+      ? SwedishResume
       : CleanResume;
 
   return (
