@@ -271,3 +271,27 @@ export interface JobImportResult {
   jobs: ImportedJobSummary[];
   errorMessage?: string;
 }
+
+// ─── Phase D3: Discovered Jobs ─────────────────────────────────────────────
+
+export interface DiscoveredJobsResult {
+  total: number;
+  newCount: number;   // has_applied = false
+  appliedCount: number;
+  jobs: Array<{
+    id: string;
+    title: string;
+    company: string;
+    location: string | null;
+    source: string;
+    allSources: string[];
+    url: string;
+    hasApplied: boolean;
+    appliedAt: string | null;
+    applicationId: string | null;
+    createdAt: string;
+    postedAt: string | null;
+  }>;
+  sourceBreakdown: Record<string, number>;  // e.g. { platsbanken: 12, email: 3, screenshot: 1 }
+  errorMessage?: string;
+}

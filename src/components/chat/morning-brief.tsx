@@ -118,6 +118,24 @@ export function MorningBrief({ data, onSelect }: Props) {
           </div>
         )}
 
+        {/* New job leads */}
+        {data.newLeadsCount > 0 && (
+          <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-blue-500">●</span>
+              <span>
+                <strong>{data.newLeadsCount} new job {data.newLeadsCount === 1 ? "lead" : "leads"}</strong>
+                {data.newLeadsSources.length > 0 && (
+                  <span className="text-muted-foreground"> from {data.newLeadsSources.join(", ")}</span>
+                )}
+              </span>
+              <a href="/dashboard/jobs" className="ml-auto text-xs text-primary hover:underline shrink-0">
+                Review →
+              </a>
+            </div>
+          </div>
+        )}
+
         {/* This week stats */}
         <div className="rounded-lg border border-border bg-card px-4 py-3">
           <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">

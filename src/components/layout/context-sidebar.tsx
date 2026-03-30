@@ -155,6 +155,22 @@ export function ContextSidebar() {
               </div>
             ) : (
               <>
+                {/* Job Leads Count */}
+                {data && data.newLeadsCount > 0 && (
+                  <div className="rounded-lg border border-border bg-background p-3">
+                    <button
+                      className="flex items-center justify-between w-full text-sm py-0.5 hover:text-primary transition-colors"
+                      onClick={() => askNexus(`Show me my ${data.newLeadsCount} new job leads`)}
+                    >
+                      <span className="flex items-center gap-2 text-xs">
+                        <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse shrink-0" />
+                        Job Leads
+                      </span>
+                      <span className="text-xs font-semibold text-blue-600">{data.newLeadsCount} new</span>
+                    </button>
+                  </div>
+                )}
+
                 {/* Pipeline Summary */}
                 <div className="rounded-lg border border-border bg-background p-3 space-y-2">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">

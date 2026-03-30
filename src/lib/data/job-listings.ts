@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { normalizeCompany, normalizeTitle, computeFingerprint } from '@/lib/jobs/dedup';
 import type { JobListing } from '@/lib/types/database';
+import type { JobResult } from '@/lib/chat/types';
 
 export async function getNewJobListings(
   userId: string,
@@ -94,4 +95,38 @@ export async function upsertJobListings(listings: JobListingInsert[]): Promise<v
       ignoreDuplicates: true,
     });
   if (error) throw error;
+}
+
+/**
+ * Persist chat searchJobs results to job_listings for cross-surface discovery tracking.
+ * Uses ignoreDuplicates so re-searching the same jobs doesn't overwrite existing data.
+ */
+export async function persistSearchResults(
+  userId: string,
+  jobs: JobResult[],
+  source: 'platsbanken' | 'adzuna'
+): Promise<void> {
+  if (jobs.length === 0) return;
+  const listings: JobListingInsert[] = jobs.map((job) => ({
+    user_id: userId,
+    saved_search_id: null,
+    external_id: job.id,
+    source,
+    title: job.title,
+    company: job.company,
+    location: job.location ?? null,
+    description: job.description ?? null,
+    url: job.url,
+    salary_min: null,
+    salary_max: null,
+    remote_type: job.remoteType ?? null,
+    posted_at: job.postedAt ?? null,
+    match_score: job.matchScore ?? 0,
+  }));
+  // Silently fail — persistence is best-effort, never block the chat response
+  try {
+    await upsertJobListings(listings);
+  } catch {
+    // intentional no-op
+  }
 }

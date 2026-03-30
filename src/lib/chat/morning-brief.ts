@@ -12,6 +12,8 @@ export interface MorningBriefData {
   stage: JobSearchStage;
   stageMessage: string;
   insights: SearchInsight[];
+  newLeadsCount: number;
+  newLeadsSources: string[];
 }
 
 const STAGE_MESSAGES: Record<JobSearchStage, string> = {
@@ -33,7 +35,9 @@ export async function getMorningBriefData(): Promise<MorningBriefData | null> {
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-  const [appsRes, eventsRes] = await Promise.all([
+  const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+  const [appsRes, eventsRes, newLeadsCountRes, newLeadSourceRowsRes] = await Promise.all([
     supabase
       .from("applications")
       .select("id, company, role, status, updated_at, applied_at")
@@ -43,11 +47,25 @@ export async function getMorningBriefData(): Promise<MorningBriefData | null> {
       .select("application_id, event_type, metadata, created_at")
       .gte("created_at", dayAgo.toISOString())
       .order("created_at", { ascending: false }),
+    supabase
+      .from("job_listings")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("has_applied", false)
+      .gte("created_at", oneDayAgo.toISOString()),
+    supabase
+      .from("job_listings")
+      .select("source")
+      .eq("user_id", user.id)
+      .eq("has_applied", false)
+      .gte("created_at", oneDayAgo.toISOString()),
   ]);
 
   const apps = appsRes.data ?? [];
   const userAppIds = new Set(apps.map((a) => a.id));
   const recentEvents = (eventsRes.data ?? []).filter((e) => userAppIds.has(e.application_id));
+  const newLeadsCount = newLeadsCountRes.count ?? 0;
+  const newLeadsSources = [...new Set((newLeadSourceRowsRes.data ?? []).map((r) => r.source))];
 
   const userName = user.user_metadata?.full_name ?? null;
 
@@ -110,6 +128,13 @@ export async function getMorningBriefData(): Promise<MorningBriefData | null> {
   // Contextual suggested actions — stalled stage leads with "Find new jobs"
   const suggestedActions: Array<{ label: string; message: string }> = [];
 
+  if (newLeadsCount > 0) {
+    suggestedActions.push({
+      label: `Review ${newLeadsCount} new leads`,
+      message: `Show me my ${newLeadsCount} new job leads`,
+    });
+  }
+
   if (stageContext.stage === "stalled") {
     suggestedActions.push({
       label: "Find new jobs",
@@ -155,5 +180,7 @@ export async function getMorningBriefData(): Promise<MorningBriefData | null> {
     stage: stageContext.stage,
     stageMessage: STAGE_MESSAGES[stageContext.stage],
     insights,
+    newLeadsCount,
+    newLeadsSources,
   };
 }

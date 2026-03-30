@@ -37,6 +37,7 @@ export interface ContextSidebarPayload {
   suggestions: Array<{ text: string; action: string; priority: number }>;
   stage: JobSearchStage;
   topInsight?: { title: string; description: string; type: string };
+  newLeadsCount: number;
 }
 
 function relativeTime(dateStr: string): string {
@@ -63,12 +64,20 @@ export async function GET() {
   const now = new Date();
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-  // Fetch all user applications
-  const { data: apps } = await supabase
-    .from("applications")
-    .select("id, company, role, status, updated_at, applied_at")
-    .eq("user_id", user.id)
-    .order("updated_at", { ascending: false });
+  // Fetch all user applications and new leads count
+  const [{ data: apps }, { count: newLeadsCount }] = await Promise.all([
+    supabase
+      .from("applications")
+      .select("id, company, role, status, updated_at, applied_at")
+      .eq("user_id", user.id)
+      .order("updated_at", { ascending: false }),
+    supabase
+      .from("job_listings")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("has_applied", false)
+      .gte("created_at", weekAgo.toISOString()),
+  ]);
 
   const allApps = apps ?? [];
   const appIds = allApps.map((a) => a.id);
@@ -159,6 +168,7 @@ export async function GET() {
     suggestions,
     stage: stageContext.stage,
     topInsight,
+    newLeadsCount: newLeadsCount ?? 0,
   };
 
   return NextResponse.json(payload);

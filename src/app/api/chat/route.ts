@@ -19,6 +19,7 @@ import {
   saveJobSearchTool,
   saveJobToTrackerTool,
   importJobScreenshotTool,
+  getDiscoveredJobsTool,
 } from '@/lib/chat/tools';
 import { buildSystemPrompt } from '@/lib/chat/system-prompt';
 import { extractFlowContext } from '@/lib/chat/flow-context';
@@ -94,6 +95,7 @@ export async function POST(req: Request) {
     saveJobSearch: saveJobSearchTool(user.id),
     saveJobToTracker: saveJobToTrackerTool(user.id),
     importJobScreenshot: importJobScreenshotTool(user.id, latestImageAttachment),
+    getDiscoveredJobs: getDiscoveredJobsTool(user.id),
   };
 
   // Convert UIMessages to ModelMessages for streamText

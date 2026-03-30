@@ -23,9 +23,11 @@ import type {
   SaveJobSearchResult,
   SaveJobToTrackerResult,
   JobImportResult,
+  DiscoveredJobsResult,
 } from './types';
 import { searchAdzunaLive } from './adzuna-search';
 import { searchJobTechDev } from './jobtechdev-search';
+import { persistSearchResults } from '@/lib/data/job-listings';
 import { fetchInsightsData } from './insights-data';
 import { detectJobSearchStage } from './stage-detection';
 import { detectPatterns } from './pattern-detection';
@@ -86,6 +88,7 @@ export function searchJobsTool(userId: string) {
             const filtered = results.filter((r) => r.remoteType === remoteType);
             if (filtered.length > 0) results = filtered;
           }
+          void persistSearchResults(userId, results.slice(0, 10), 'platsbanken');
           return { jobs: results.slice(0, 10), total, query, source: 'live' };
         }
       } else {
@@ -106,6 +109,7 @@ export function searchJobsTool(userId: string) {
           if (filtered.length > 0) results = filtered;
         }
 
+        void persistSearchResults(userId, results.slice(0, 10), 'adzuna');
         return {
           jobs: results.slice(0, 10),
           total: results.length,
@@ -1580,6 +1584,80 @@ export function importJobScreenshotTool(
         })),
         errorMessage: result.errorMessage,
       };
+    },
+  });
+}
+
+// ─── Tool 18: Get Discovered Jobs ─────────────────────────────────────────────
+
+export function getDiscoveredJobsTool(userId: string) {
+  return tool({
+    description:
+      "Show job leads discovered from all sources — email alerts, job searches, Chrome extension, screenshots. Use when the user asks 'what jobs did I find?', 'show me my leads', 'any new job alerts?', 'what\\'s in my job inbox?', or wants to review discovered opportunities.",
+    inputSchema: zodSchema(
+      z.object({
+        filter: z.enum(['all', 'new', 'applied']).optional().default('all')
+          .describe("'new' = not yet applied, 'applied' = already applied, 'all' = everything"),
+        source: z.string().optional()
+          .describe("Filter by source: 'platsbanken', 'linkedin', 'email', 'screenshot', 'teamtailor', etc."),
+        limit: z.number().optional().default(10)
+          .describe('Max results to show (default 10, max 20)'),
+      })
+    ),
+    execute: async ({ filter = 'all', source, limit = 10 }: {
+      filter?: 'all' | 'new' | 'applied';
+      source?: string;
+      limit?: number;
+    }): Promise<DiscoveredJobsResult> => {
+      const supabase = await createClient();
+
+      let query = supabase
+        .from('job_listings')
+        .select('id, title, company, location, source, all_sources, url, has_applied, applied_at, application_id, created_at, posted_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(Math.min(limit, 20));
+
+      if (filter === 'new') query = query.eq('has_applied', false);
+      if (filter === 'applied') query = query.eq('has_applied', true);
+      if (source) query = query.eq('source', source);
+
+      const { data: listings, error } = await query;
+
+      if (error) {
+        return { total: 0, newCount: 0, appliedCount: 0, jobs: [], sourceBreakdown: {}, errorMessage: 'Failed to load job leads' };
+      }
+
+      const jobs = (listings ?? []).map((l) => ({
+        id: l.id,
+        title: l.title,
+        company: l.company,
+        location: l.location,
+        source: l.source,
+        allSources: l.all_sources ?? [],
+        url: l.url,
+        hasApplied: l.has_applied ?? false,
+        appliedAt: l.applied_at,
+        applicationId: l.application_id,
+        createdAt: l.created_at,
+        postedAt: l.posted_at,
+      }));
+
+      // Source breakdown (query all, not just the filtered slice)
+      const { data: allForBreakdown } = await supabase
+        .from('job_listings')
+        .select('source, has_applied')
+        .eq('user_id', userId);
+
+      const all = allForBreakdown ?? [];
+      const sourceBreakdown: Record<string, number> = {};
+      for (const row of all) {
+        sourceBreakdown[row.source] = (sourceBreakdown[row.source] ?? 0) + 1;
+      }
+      const newCount = all.filter((r) => !r.has_applied).length;
+      const appliedCount = all.filter((r) => r.has_applied).length;
+
+      return { total: all.length, newCount, appliedCount, jobs, sourceBreakdown };
     },
   });
 }

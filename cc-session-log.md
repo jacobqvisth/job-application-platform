@@ -317,3 +317,36 @@ None — all new features use existing D1a schema columns and tables.
 
 ### Next step
 Apply D1b to production: `vercel --prod --yes`. Then run E2E suite against production. Phase D2 can build on top of this — deeper email→application auto-linking, bulk import UI in the Jobs page.
+
+## Phase D3 — Chat Integration for Job Leads
+
+**Date:** 2026-03-30
+
+### What was built
+- **`persistSearchResults`** in `src/lib/data/job-listings.ts` — fire-and-forget helper that saves live `searchJobs` results to `job_listings`; called from both the JobTechDev and Adzuna paths in `searchJobsTool` without blocking the chat response.
+- **Tool 18: `getDiscoveredJobs`** in `src/lib/chat/tools.ts` — browses the jobs inbox from chat, supports `filter` (all/new/applied), `source`, and `limit` params; returns full source breakdown and per-listing metadata. Registered in `/api/chat/route.ts` and added to the system prompt.
+- **`DiscoveredJobsCard`** at `src/components/chat/discovered-jobs-card.tsx` — generative UI card showing lead count chips, source breakdown bar with same colors as the Jobs page, per-job rows with applied badge or external link, and a "View all in Jobs →" footer. Wired into `chat-message.tsx` with loading label "Checking your job leads...".
+- **Morning brief new leads line** — `MorningBriefData` extended with `newLeadsCount`/`newLeadsSources`; 24-hour window query added to `getMorningBriefData()`; blue card shown in morning-brief UI when count > 0; suggested action pushed to action list.
+- **Context sidebar job leads count** — `ContextSidebarPayload` extended with `newLeadsCount`; 7-day window count query added to `/api/context-sidebar/route.ts`; pulsing blue "Job Leads · N new" button added at top of pipeline section in `context-sidebar.tsx`.
+
+### Files changed
+- Modified: `src/lib/data/job-listings.ts` — added `persistSearchResults`, imported `JobResult` from chat types
+- Modified: `src/lib/chat/tools.ts` — imported `persistSearchResults`, `DiscoveredJobsResult`; added persist calls in `searchJobsTool`; added `getDiscoveredJobsTool`
+- Modified: `src/lib/chat/types.ts` — added `DiscoveredJobsResult` interface
+- Modified: `src/app/api/chat/route.ts` — imported and registered `getDiscoveredJobsTool`
+- Modified: `src/lib/chat/system-prompt.ts` — added Tool 18 description
+- New: `src/components/chat/discovered-jobs-card.tsx` — DiscoveredJobsCard component
+- Modified: `src/components/chat/chat-message.tsx` — imported DiscoveredJobsCard, added loading label, wired case
+- Modified: `src/lib/chat/morning-brief.ts` — added newLeadsCount/newLeadsSources to interface and data fetch
+- Modified: `src/components/chat/morning-brief.tsx` — added new leads section card
+- Modified: `src/app/api/context-sidebar/route.ts` — added newLeadsCount to payload and query
+- Modified: `src/components/layout/context-sidebar.tsx` — added job leads row at top of pipeline section
+
+### Migration applied
+None — D3 uses existing schema from migration 017 (D1a).
+
+### Test result
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 warnings. `npm run build` — TypeScript compiled successfully; pre-render failure is pre-existing Supabase env var issue in local build.
+
+### Next step
+Deploy to production: `vercel --prod --yes`. Then run E2E suite. Phase D4 could add deeper inbox management — bulk apply, snooze, dismiss flows — or pivoting to the next planned phase.
