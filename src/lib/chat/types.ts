@@ -111,6 +111,9 @@ export interface SaveJobToTrackerResult {
   alreadyExists: boolean;
   applicationId?: string;
   message: string;
+  alreadyApplied?: boolean;
+  warningMessage?: string;
+  jobListingId?: string;
 }
 
 export interface ApplicationStatusResult {

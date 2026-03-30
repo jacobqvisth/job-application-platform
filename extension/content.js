@@ -254,6 +254,23 @@
         text-decoration: underline;
         cursor: pointer;
       }
+      .jac-warn-banner {
+        padding: 8px 10px;
+        border-radius: 6px;
+        font-size: 12px;
+        line-height: 1.4;
+        margin-bottom: 6px;
+      }
+      .jac-warn-applied {
+        background: #fff7ed;
+        border: 1px solid #fed7aa;
+        color: #9a3412;
+      }
+      .jac-warn-saved {
+        background: #fefce8;
+        border: 1px solid #fde68a;
+        color: #713f12;
+      }
     `;
   }
 
@@ -408,9 +425,41 @@
       },
       (response) => {
         saveBtn.disabled = false;
+
+        // Remove any existing warning banners before showing new state
+        const existingBanner = shadow.querySelector('.jac-warn-banner');
+        if (existingBanner) existingBanner.remove();
+
         if (response?.success) {
-          saveBtn.textContent = response.alreadySaved ? '✓ Already saved' : '✓ Saved to Tracker';
-          if (!response.alreadySaved) {
+          if (response.alreadyApplied) {
+            // Orange "already applied" banner
+            saveBtn.textContent = '✓ Already Applied';
+            const appliedDate = response.appliedAt
+              ? new Date(response.appliedAt).toLocaleDateString('en-SE', { year: 'numeric', month: 'short', day: 'numeric' })
+              : null;
+            const banner = document.createElement('div');
+            banner.className = 'jac-warn-banner jac-warn-applied';
+            banner.innerHTML =
+              `<strong>⚠️ Already Applied</strong>` +
+              (appliedDate ? `<br>You applied to this job on ${appliedDate}.` : '') +
+              (response.applicationId
+                ? ` <a class="jac-link" href="https://job-application-platform-lake.vercel.app/dashboard/applications" target="_blank">View Application →</a>`
+                : '');
+            resultsEl.insertAdjacentElement('beforebegin', banner);
+            resultsEl.style.display = 'block';
+          } else if (response.alreadySaved) {
+            // Yellow "already saved" banner
+            saveBtn.textContent = '✓ Already Saved';
+            const banner = document.createElement('div');
+            banner.className = 'jac-warn-banner jac-warn-saved';
+            banner.innerHTML =
+              `<strong>ℹ️ Already Saved</strong>` +
+              (response.warningMessage ? `<br>${response.warningMessage}` : '') +
+              ` <a class="jac-link" href="https://job-application-platform-lake.vercel.app/dashboard/applications" target="_blank">View →</a>`;
+            resultsEl.insertAdjacentElement('beforebegin', banner);
+            resultsEl.style.display = 'block';
+          } else {
+            saveBtn.textContent = '✓ Saved to Tracker';
             resultsEl.innerHTML +=
               `<a class="jac-link" href="https://job-application-platform-lake.vercel.app/dashboard/applications" target="_blank">View in Tracker →</a>`;
             resultsEl.style.display = 'block';

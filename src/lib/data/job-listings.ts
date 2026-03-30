@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { normalizeCompany, normalizeTitle, computeFingerprint } from '@/lib/jobs/dedup';
 import type { JobListing } from '@/lib/types/database';
 
 export async function getNewJobListings(
@@ -75,9 +76,20 @@ export async function upsertJobListings(listings: JobListingInsert[]): Promise<v
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
+
+  // Enrich each listing with dedup normalization fields
+  const enriched = listings.map((listing) => ({
+    ...listing,
+    company_normalized: normalizeCompany(listing.company),
+    title_normalized: normalizeTitle(listing.title),
+    dedup_fingerprint: computeFingerprint(listing.company, listing.title),
+    all_sources: [listing.source],
+    all_urls: [listing.url],
+  }));
+
   const { error } = await supabase
     .from('job_listings')
-    .upsert(listings, {
+    .upsert(enriched, {
       onConflict: 'user_id,external_id,source',
       ignoreDuplicates: true,
     });

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getExtensionUser } from '@/lib/supabase/extension-auth';
+import { findOrCreateJobListing, markJobListingAsApplied } from '@/lib/jobs/dedup';
+import type { JobSource } from '@/lib/jobs/dedup';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -9,6 +11,22 @@ const CORS_HEADERS = {
 
 export async function OPTIONS() {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
+}
+
+function atsTypeToSource(
+  atsType: string | undefined
+): JobSource {
+  switch (atsType) {
+    case 'workday':    return 'workday';
+    case 'greenhouse': return 'greenhouse';
+    case 'lever':      return 'lever';
+    case 'linkedin':   return 'linkedin';
+    case 'teamtailor': return 'teamtailor';
+    case 'varbi':      return 'varbi';
+    case 'jobylon':    return 'jobylon';
+    case 'reachmee':   return 'reachmee';
+    default:           return 'manual';
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -25,7 +43,7 @@ export async function POST(request: NextRequest) {
     url: string;
     location?: string;
     description?: string;
-    ats_type?: 'workday' | 'greenhouse' | 'lever' | 'linkedin' | 'unknown';
+    ats_type?: 'workday' | 'greenhouse' | 'lever' | 'linkedin' | 'teamtailor' | 'varbi' | 'jobylon' | 'reachmee' | 'unknown';
     status?: 'saved' | 'applied' | 'interviewing' | 'offered' | 'rejected';
     notes?: string;
   };
@@ -43,21 +61,79 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Check for duplicate
-  const { data: existing } = await supabase
-    .from('applications')
-    .select('id')
-    .eq('user_id', userId)
-    .eq('url', body.url)
-    .maybeSingle();
+  const source = atsTypeToSource(body.ats_type);
 
-  if (existing) {
+  // Find or create canonical job listing (dedup by fingerprint)
+  let dedupResult;
+  try {
+    dedupResult = await findOrCreateJobListing(supabase, {
+      userId,
+      title: body.title,
+      company: body.company,
+      url: body.url,
+      source,
+      description: body.description,
+      location: body.location,
+    });
+  } catch (err) {
+    console.error('Extension save-job dedup error:', err);
+    return NextResponse.json({ error: 'Failed to process job' }, { status: 500, headers: CORS_HEADERS });
+  }
+
+  // If already applied — return early with warning
+  if (dedupResult.alreadyApplied) {
     return NextResponse.json(
-      { success: true, applicationId: existing.id, alreadySaved: true },
+      {
+        success: true,
+        applicationId: dedupResult.applicationId,
+        alreadySaved: true,
+        alreadyApplied: true,
+        appliedAt: dedupResult.appliedAt,
+        warningMessage: dedupResult.warningMessage,
+      },
       { headers: CORS_HEADERS }
     );
   }
 
+  // If already saved (seen from another source) — check if there's an existing application
+  if (!dedupResult.isNew && dedupResult.applicationId) {
+    return NextResponse.json(
+      {
+        success: true,
+        applicationId: dedupResult.applicationId,
+        alreadySaved: true,
+        alreadyApplied: false,
+        warningMessage: dedupResult.warningMessage,
+      },
+      { headers: CORS_HEADERS }
+    );
+  }
+
+  // Check for an existing application linked to this job listing
+  if (!dedupResult.isNew) {
+    const { data: existingApp } = await supabase
+      .from('applications')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('job_listing_id', dedupResult.jobListingId)
+      .maybeSingle();
+
+    if (existingApp) {
+      return NextResponse.json(
+        {
+          success: true,
+          applicationId: existingApp.id,
+          alreadySaved: true,
+          alreadyApplied: false,
+          warningMessage: dedupResult.warningMessage,
+        },
+        { headers: CORS_HEADERS }
+      );
+    }
+  }
+
+  // Create application
+  const applicationStatus = body.status ?? 'saved';
   const { data: application, error } = await supabase
     .from('applications')
     .insert({
@@ -65,9 +141,10 @@ export async function POST(request: NextRequest) {
       company: body.company,
       role: body.title,
       url: body.url,
-      status: body.status ?? 'saved',
+      status: applicationStatus,
       job_description: body.description ?? null,
       location: body.location ?? null,
+      job_listing_id: dedupResult.jobListingId,
       ...(body.notes ? { notes: body.notes } : {}),
     })
     .select('id')
@@ -76,6 +153,17 @@ export async function POST(request: NextRequest) {
   if (error) {
     console.error('Extension save-job error:', error);
     return NextResponse.json({ error: 'Failed to save job' }, { status: 500, headers: CORS_HEADERS });
+  }
+
+  // Mark listing as applied if status is applied
+  if (applicationStatus === 'applied') {
+    await markJobListingAsApplied(supabase, dedupResult.jobListingId, application.id);
+  } else {
+    // Still link the application back even if not yet applied
+    await supabase
+      .from('job_listings')
+      .update({ is_saved: true, application_id: application.id })
+      .eq('id', dedupResult.jobListingId);
   }
 
   return NextResponse.json(

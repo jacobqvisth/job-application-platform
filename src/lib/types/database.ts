@@ -43,6 +43,7 @@ export interface Application {
   contact_name: string | null;
   contact_email: string | null;
   next_followup_at: string | null;
+  job_listing_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -117,6 +118,7 @@ export interface Email {
   gmail_message_id: string;
   gmail_thread_id: string;
   application_id: string | null;
+  job_listing_id: string | null;
   from_address: string;
   to_address: string;
   subject: string;
@@ -399,7 +401,7 @@ export interface JobListing {
   user_id: string;
   saved_search_id: string | null;
   external_id: string;
-  source: 'adzuna' | 'jobtechdev';
+  source: string;
   title: string;
   company: string;
   location: string | null;
@@ -421,6 +423,26 @@ export interface JobListing {
   deadline: string | null;
   required_skills: string[] | null;
   number_of_vacancies: number | null;
+  // Phase D1a: Dedup + application tracking fields
+  company_normalized: string | null;
+  title_normalized: string | null;
+  dedup_fingerprint: string | null;
+  all_sources: string[];
+  all_urls: string[];
+  has_applied: boolean;
+  applied_at: string | null;
+  application_id: string | null;
+}
+
+export interface JobListingSource {
+  id: string;
+  job_listing_id: string;
+  user_id: string;
+  source: string;
+  external_id: string | null;
+  source_url: string | null;
+  raw_data: Record<string, unknown>;
+  seen_at: string;
 }
 
 // Used for live search results (not persisted — returned from Adzuna API)

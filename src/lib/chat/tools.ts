@@ -1356,9 +1356,11 @@ export function saveJobToTrackerTool(userId: string) {
         remoteType: z.enum(['remote', 'hybrid', 'onsite']).optional(),
         description: z.string().optional().describe('Job description text'),
         salaryRange: z.string().optional().describe('Salary range text'),
+        externalId: z.string().optional().describe('External job ID from source system (e.g. Platsbanken/Adzuna job ID)'),
+        source: z.enum(['platsbanken', 'jobtechdev', 'adzuna', 'linkedin', 'manual']).optional().default('manual').describe('Source platform the job was found on'),
       })
     ),
-    execute: async ({ title, company, url, location, remoteType, description, salaryRange }: {
+    execute: async ({ title, company, url, location, remoteType, description, salaryRange, externalId, source }: {
       title: string;
       company: string;
       url?: string;
@@ -1366,25 +1368,73 @@ export function saveJobToTrackerTool(userId: string) {
       remoteType?: 'remote' | 'hybrid' | 'onsite';
       description?: string;
       salaryRange?: string;
+      externalId?: string;
+      source?: 'platsbanken' | 'jobtechdev' | 'adzuna' | 'linkedin' | 'manual';
     }): Promise<SaveJobToTrackerResult> => {
       const supabase = await createClient();
+      const { findOrCreateJobListing } = await import('@/lib/jobs/dedup');
 
-      // Check for duplicate (same company + role)
-      const { data: existing } = await supabase
-        .from('applications')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('company', company)
-        .ilike('role', title)
-        .maybeSingle();
+      let dedupResult;
+      try {
+        dedupResult = await findOrCreateJobListing(supabase, {
+          userId,
+          title,
+          company,
+          url: url ?? `manual_${Date.now()}`,
+          source: source ?? 'manual',
+          externalId,
+          description,
+          location,
+          remoteType: remoteType ?? 'unknown',
+        });
+      } catch {
+        return { success: false, alreadyExists: false, message: 'Failed to save job.' };
+      }
 
-      if (existing) {
+      // Already applied to this job
+      if (dedupResult.alreadyApplied) {
         return {
           success: false,
           alreadyExists: true,
-          applicationId: existing.id,
-          message: `You already have "${title}" at ${company} in your tracker.`,
+          alreadyApplied: true,
+          applicationId: dedupResult.applicationId ?? undefined,
+          jobListingId: dedupResult.jobListingId,
+          message: `You already applied to "${title}" at ${company}.`,
+          warningMessage: dedupResult.warningMessage,
         };
+      }
+
+      // Seen from another platform — check for existing application
+      if (!dedupResult.isNew && dedupResult.applicationId) {
+        return {
+          success: false,
+          alreadyExists: true,
+          applicationId: dedupResult.applicationId,
+          jobListingId: dedupResult.jobListingId,
+          message: `You already have "${title}" at ${company} in your tracker.`,
+          warningMessage: dedupResult.warningMessage,
+        };
+      }
+
+      // Check for an existing application linked to this listing
+      if (!dedupResult.isNew) {
+        const { data: existingApp } = await supabase
+          .from('applications')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('job_listing_id', dedupResult.jobListingId)
+          .maybeSingle();
+
+        if (existingApp) {
+          return {
+            success: false,
+            alreadyExists: true,
+            applicationId: existingApp.id,
+            jobListingId: dedupResult.jobListingId,
+            message: `You already have "${title}" at ${company} in your tracker.`,
+            warningMessage: dedupResult.warningMessage,
+          };
+        }
       }
 
       const { data: app, error } = await supabase
@@ -1399,6 +1449,7 @@ export function saveJobToTrackerTool(userId: string) {
           job_description: description ?? null,
           salary_range: salaryRange ?? null,
           status: 'saved',
+          job_listing_id: dedupResult.jobListingId,
         })
         .select('id')
         .single();
@@ -1407,10 +1458,17 @@ export function saveJobToTrackerTool(userId: string) {
         return { success: false, alreadyExists: false, message: 'Failed to save job.' };
       }
 
+      // Link application back to the listing
+      await supabase
+        .from('job_listings')
+        .update({ is_saved: true, application_id: app.id })
+        .eq('id', dedupResult.jobListingId);
+
       return {
         success: true,
         alreadyExists: false,
         applicationId: app.id,
+        jobListingId: dedupResult.jobListingId,
         message: `Saved "${title}" at ${company} to your tracker!`,
       };
     },

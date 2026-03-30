@@ -244,3 +244,39 @@ Chrome extension adapters for the #2 and #3 ATS platforms in Sweden, covering 26
 2. Deploy with `vercel --prod --yes`.
 3. Run `TEST_BASE_URL=https://job-application-platform-lake.vercel.app npm run test:e2e` — all tests should pass.
 4. Load the updated extension in Chrome (reload unpacked) to test on `emp.jobylon.com` and a `*.reachmee.com` site.
+
+---
+
+## Phase D1+D2 — Job Leads Inbox (Email Extraction + Manual Entry + Inbox UI)
+
+**Date:** 2026-03-30
+
+### What was built
+- **Migration 016** (`supabase/migrations/016_job_leads_workflow.sql`): Adds `status` (new/reviewing/saved/dismissed/applied), `starred`, `notes`, `source_email_id`, `application_id`, `ai_summary` to `job_listings`. Migrates existing `is_saved=true` rows to `status='saved'`. Applied via Supabase MCP before deploy.
+- **Email job alert extraction (D1):** `src/lib/gmail/classify.ts` updated — added `job_alert` classification + sender-domain pre-filter (LinkedIn, Indeed, Stepstone, etc.) + updated Claude prompt to distinguish digests from individual emails. New `src/lib/gmail/extract-jobs.ts` — `extractJobsFromEmail()` uses Claude Haiku to parse alert email HTML into structured `JobListingInsert[]`; `extractJobsFromAlertEmails()` processes up to 10 unprocessed emails per cron run with dedup via `source_email_id`. `sync-emails/route.ts` wired in extraction as step 3 after classify.
+- **Manual entry (D2a):** New `src/app/api/jobs/add/route.ts` — URL mode (server-fetch + Claude extract), Paste mode (Claude extract from raw text), Quick mode (no AI). New `src/components/jobs/add-job-dialog.tsx` — 3-tab dialog with URL extract+preview+confirm, paste extract+confirm, and quick form.
+- **Inbox-first UI (D2b):** `src/app/(protected)/dashboard/jobs/page.tsx` now loads by status tabs. `src/components/jobs/job-search-client.tsx` fully rewritten as `JobLeadsClient` — "Job Leads" heading, status tabs (New/Saved/Applied/Dismissed), filter bar (source/remote/score/sort), source badges (email/saved-search/manual/chat), star button, per-card actions (Save / Dismiss / → Apply / Restore). `src/components/jobs/job-card.tsx` updated with source badges, star, inbox-mode actions. New `src/components/jobs/convert-to-application-dialog.tsx` — pre-fills from listing, creates application, back-links via `application_id`.
+- **Server actions + data layer:** New `src/app/(protected)/dashboard/jobs/actions.ts` (saveJobListing, dismissJobListing, restoreJobListing, starJobListing, linkJobListingToApplication). `src/lib/data/job-listings.ts` extended with `getJobListingsByStatus`, `updateJobListingStatus`, `updateJobListingStarred`, `convertJobListingToApplication`. New `src/app/api/jobs/list/route.ts` for lazy-loading Applied/Dismissed tabs.
+
+### Migration applied
+`016_job_leads_workflow` — applied via Supabase MCP on 2026-03-30 before deploy.
+
+### Test result
+89/89 E2E tests passed against production. Build clean (0 TypeScript errors, 0 lint warnings).
+
+### Next step
+Phase D3 — Chat integration: `getDiscoveredJobs` tool (Tool 17), `searchJobs` persistence to job_leads, morning brief "X new job leads" line, context sidebar count.
+
+---
+
+## Phase D1a — Universal Job Deduplication Foundation
+
+**Date:** 2026-03-30
+
+### Session summary (5 bullets)
+
+- **What was built:** Central deduplication layer for cross-platform job tracking. `supabase/migrations/016_universal_job_index.sql` adds `company_normalized`, `title_normalized`, `dedup_fingerprint`, `all_sources[]`, `all_urls[]`, `has_applied`, `applied_at`, `application_id` to `job_listings`; creates `job_listing_sources` table (with RLS + indexes); adds `job_listing_id` FK to both `applications` and `emails`; includes backfill SQL for existing rows and an `append_job_listing_source` PL/pgSQL helper function. Migration NOT yet applied — apply via Supabase MCP.
+- **Dedup service:** New `src/lib/jobs/dedup.ts` — exports `normalizeCompany()`, `normalizeTitle()`, `computeFingerprint()`, `findOrCreateJobListing()` (3-step: exact external_id → fingerprint match → create new), `markJobListingAsApplied()`. All ingest paths now funnel through here. Fingerprint format: `<company_normalized>::<title_normalized>`.
+- **Ingest path wiring:** `src/app/api/extension/save-job/route.ts` replaced URL-only dedup with `findOrCreateJobListing`; maps all ATS types (teamtailor/varbi/jobylon/reachmee/greenhouse/lever/workday/linkedin/unknown→manual) to `JobSource`; returns `alreadyApplied`, `alreadySaved`, `warningMessage`, `appliedAt` in response. `src/lib/chat/tools.ts` `saveJobToTrackerTool` wired through dedup service; `SaveJobToTrackerResult` extended with `alreadyApplied`, `warningMessage`, `jobListingId` fields. `src/lib/data/job-listings.ts` `upsertJobListings` now enriches all cron-ingested records with normalization fields.
+- **UI updates:** `src/components/chat/save-job-confirmation.tsx` adds amber "Already Applied" card (AlertTriangle icon) with applied date + link, shown when `alreadyApplied: true`, in addition to existing blue "Already in tracker" and green "Saved" states. `extension/content.js` save button handler now shows `.jac-warn-applied` (orange) and `.jac-warn-saved` (yellow) inline banners before any existing results; CSS classes added to `getSidebarCSS()`.
+- **Build result:** `npx tsc --noEmit` — 0 errors. `npm run lint` — 0 warnings. `npm run build` — all routes compiled successfully. **Next step:** Apply migration `016_universal_job_index.sql` via Supabase MCP, then deploy with `vercel --prod --yes` and run E2E suite.
