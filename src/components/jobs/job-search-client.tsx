@@ -71,6 +71,7 @@ export function JobSearchClient({
   const [discoveredListings, setDiscoveredListings] = useState<JobListing[]>(
     initialDiscoveredListings
   );
+  const [discoveredFilter, setDiscoveredFilter] = useState<"all" | "multi-source">("all");
 
   async function fetchResults(p: number, append: boolean) {
     const params = new URLSearchParams({ q: query, country, page: String(p) });
@@ -342,6 +343,7 @@ export function JobSearchClient({
                     key={job.external_id}
                     job={job}
                     onSave={handleSaveJob}
+                    alreadyApplied={job.alreadyApplied}
                   />
                 ))
               )}
@@ -390,26 +392,58 @@ export function JobSearchClient({
             </div>
           ) : (
             <>
+              {/* Filter row */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => setDiscoveredFilter("all")}
+                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                    discoveredFilter === "all"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  }`}
+                >
+                  All ({discoveredListings.length})
+                </button>
+                {discoveredListings.some((l) => (l.all_sources ?? []).length > 1) && (
+                  <button
+                    onClick={() => setDiscoveredFilter("multi-source")}
+                    className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                      discoveredFilter === "multi-source"
+                        ? "bg-amber-600 text-white"
+                        : "bg-amber-50 text-amber-700 hover:bg-amber-100"
+                    }`}
+                  >
+                    Multi-platform ({discoveredListings.filter((l) => (l.all_sources ?? []).length > 1).length})
+                  </button>
+                )}
+              </div>
+
               <p className="text-sm text-muted-foreground">
                 New jobs found by your saved searches while you were away.
               </p>
               <div className="space-y-3">
-                {discoveredListings.map((listing) => (
-                  <JobCard
-                    key={listing.id}
-                    job={listing}
-                    onSave={async (job) => {
-                      const result = await handleSaveJob(job);
-                      if (!result.alreadySaved) {
-                        setDiscoveredListings((prev) =>
-                          prev.filter((l) => l.id !== listing.id)
-                        );
-                      }
-                      return result;
-                    }}
-                    isSaved={listing.is_saved}
-                  />
-                ))}
+                {discoveredListings
+                  .filter((l) =>
+                    discoveredFilter === "multi-source"
+                      ? (l.all_sources ?? []).length > 1
+                      : true
+                  )
+                  .map((listing) => (
+                    <JobCard
+                      key={listing.id}
+                      job={listing}
+                      onSave={async (job) => {
+                        const result = await handleSaveJob(job);
+                        if (!result.alreadySaved) {
+                          setDiscoveredListings((prev) =>
+                            prev.filter((l) => l.id !== listing.id)
+                          );
+                        }
+                        return result;
+                      }}
+                      isSaved={listing.is_saved}
+                    />
+                  ))}
               </div>
             </>
           )}

@@ -5,6 +5,7 @@ import { getPrimaryMarket } from '@/lib/data/markets';
 import { getMarketConfig } from '@/lib/markets';
 import { computeMatchScore } from '@/lib/utils/match-score';
 import { fetchJobTechDevRaw, hitToJobResult } from '@/lib/chat/jobtechdev-search';
+import { computeFingerprint } from '@/lib/jobs/dedup';
 import type { AdzunaJobResult } from '@/lib/types/database';
 
 function detectRemoteType(
@@ -97,6 +98,22 @@ export async function GET(request: NextRequest) {
     });
 
     results.sort((a, b) => b.matchScore - a.matchScore);
+
+    // Batch check: mark results the user has already applied to
+    const fingerprints = results.map((r) => computeFingerprint(r.company, r.title));
+    const { data: appliedListings } = await supabase
+      .from('job_listings')
+      .select('dedup_fingerprint')
+      .eq('user_id', user.id)
+      .eq('has_applied', true)
+      .in('dedup_fingerprint', fingerprints);
+    const appliedFpSet = new Set((appliedListings ?? []).map((l) => l.dedup_fingerprint));
+    for (const r of results) {
+      if (appliedFpSet.has(computeFingerprint(r.company, r.title))) {
+        (r as unknown as { alreadyApplied: boolean }).alreadyApplied = true;
+      }
+    }
+
     return NextResponse.json({ success: true, results, total, page });
   }
 
@@ -184,6 +201,21 @@ export async function GET(request: NextRequest) {
   });
 
   results.sort((a, b) => b.match_score - a.match_score);
+
+  // Batch check: mark results the user has already applied to
+  const adzunaFingerprints = results.map((r) => computeFingerprint(r.company, r.title));
+  const { data: adzunaApplied } = await supabase
+    .from('job_listings')
+    .select('dedup_fingerprint')
+    .eq('user_id', user.id)
+    .eq('has_applied', true)
+    .in('dedup_fingerprint', adzunaFingerprints);
+  const adzunaAppliedSet = new Set((adzunaApplied ?? []).map((l) => l.dedup_fingerprint));
+  for (const r of results) {
+    if (adzunaAppliedSet.has(computeFingerprint(r.company, r.title))) {
+      r.alreadyApplied = true;
+    }
+  }
 
   return NextResponse.json({
     success: true,

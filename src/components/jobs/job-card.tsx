@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import type { AdzunaJobResult, JobListing } from "@/lib/types/database";
 
 type Job = AdzunaJobResult | JobListing;
@@ -14,6 +15,7 @@ interface JobCardProps {
   job: Job;
   onSave: (job: Job) => Promise<{ alreadySaved: boolean }>;
   isSaved?: boolean;
+  alreadyApplied?: boolean;
 }
 
 function matchColor(score: number): string {
@@ -56,7 +58,36 @@ function remoteLabel(type: string | null): string | null {
   return type.charAt(0).toUpperCase() + type.slice(1);
 }
 
-export function JobCard({ job, onSave, isSaved: initialSaved = false }: JobCardProps) {
+const SOURCE_STYLES: Record<string, { label: string; className: string }> = {
+  platsbanken: { label: "Platsbanken", className: "bg-blue-100 text-blue-700 border-blue-200" },
+  jobtechdev: { label: "Platsbanken", className: "bg-blue-100 text-blue-700 border-blue-200" },
+  linkedin: { label: "LinkedIn", className: "bg-indigo-100 text-indigo-700 border-indigo-200" },
+  teamtailor: { label: "Teamtailor", className: "bg-violet-100 text-violet-700 border-violet-200" },
+  varbi: { label: "Varbi", className: "bg-purple-100 text-purple-700 border-purple-200" },
+  jobylon: { label: "Jobylon", className: "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200" },
+  reachmee: { label: "ReachMee", className: "bg-pink-100 text-pink-700 border-pink-200" },
+  adzuna: { label: "Adzuna", className: "bg-orange-100 text-orange-700 border-orange-200" },
+  email: { label: "Email", className: "bg-gray-100 text-gray-600 border-gray-200" },
+  screenshot: { label: "Screenshot", className: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  manual: { label: "Manual", className: "bg-zinc-100 text-zinc-600 border-zinc-200" },
+};
+
+function SourceBadge({ source }: { source: string }) {
+  const style = SOURCE_STYLES[source] ?? {
+    label: source,
+    className: "bg-muted text-muted-foreground border-muted",
+  };
+  return (
+    <Badge
+      variant="outline"
+      className={`text-xs px-1.5 py-0 font-normal ${style.className}`}
+    >
+      {style.label}
+    </Badge>
+  );
+}
+
+export function JobCard({ job, onSave, isSaved: initialSaved = false, alreadyApplied: propAlreadyApplied }: JobCardProps) {
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -66,6 +97,13 @@ export function JobCard({ job, onSave, isSaved: initialSaved = false }: JobCardP
   const postedDate = formatDate(job.posted_at);
   const remote = remoteLabel(job.remote_type);
   const score = job.match_score;
+
+  // JobListing-specific fields (not on AdzunaJobResult)
+  const isJobListing = "all_sources" in job;
+  const allSources = isJobListing ? (job as JobListing).all_sources ?? [] : [];
+  const hasApplied = propAlreadyApplied ?? (isJobListing ? (job as JobListing).has_applied : false);
+  const appliedAt = isJobListing ? (job as JobListing).applied_at : null;
+  const applicationId = isJobListing ? (job as JobListing).application_id : null;
 
   async function handleSave() {
     setSaving(true);
@@ -138,7 +176,37 @@ export function JobCard({ job, onSave, isSaved: initialSaved = false }: JobCardP
             {remote}
           </Badge>
         )}
+        {hasApplied && (
+          applicationId ? (
+            <Link
+              href={`/dashboard/applications?id=${applicationId}`}
+              className="inline-flex items-center gap-1 rounded-full bg-green-100 text-green-700 border border-green-200 px-2 py-0.5 text-xs font-medium hover:bg-green-200 transition-colors"
+            >
+              <Check className="h-2.5 w-2.5" />
+              Applied{appliedAt ? ` ${formatDate(appliedAt)}` : ""}
+            </Link>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-full bg-green-100 text-green-700 border border-green-200 px-2 py-0.5 text-xs font-medium">
+              <Check className="h-2.5 w-2.5" />
+              Applied{appliedAt ? ` ${formatDate(appliedAt)}` : ""}
+            </span>
+          )
+        )}
       </div>
+
+      {/* Source badges */}
+      {allSources.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {allSources.map((src) => (
+            <SourceBadge key={src} source={src} />
+          ))}
+          {allSources.length > 1 && (
+            <Badge variant="outline" className="text-xs px-1.5 py-0 font-normal bg-amber-50 text-amber-700 border-amber-200">
+              Multi-source
+            </Badge>
+          )}
+        </div>
+      )}
 
       {/* Expandable description */}
       {job.description && (

@@ -22,6 +22,7 @@ import type {
   LinkedInShareData,
   SaveJobSearchResult,
   SaveJobToTrackerResult,
+  JobImportResult,
 } from './types';
 import { searchAdzunaLive } from './adzuna-search';
 import { searchJobTechDev } from './jobtechdev-search';
@@ -1470,6 +1471,114 @@ export function saveJobToTrackerTool(userId: string) {
         applicationId: app.id,
         jobListingId: dedupResult.jobListingId,
         message: `Saved "${title}" at ${company} to your tracker!`,
+      };
+    },
+  });
+}
+
+// ─── Tool 17: Import Job Screenshot ─────────────────────────────────────────
+
+interface ImageAttachment {
+  url?: string;
+  contentType?: string;
+  name?: string;
+}
+
+export function importJobScreenshotTool(
+  userId: string,
+  latestImageAttachment?: ImageAttachment
+) {
+  return tool({
+    description:
+      "Import job applications from a screenshot. Use when the user shares a screenshot of their LinkedIn applications, email inbox, or any job platform showing jobs they've applied to. The tool will extract job details and add them to the tracker. Requires an image to be attached to the message.",
+    inputSchema: zodSchema(
+      z.object({
+        imageUrl: z.string().optional().describe("URL of an uploaded image"),
+        imageBase64: z.string().optional().describe("Base64 encoded image data"),
+        mimeType: z
+          .enum(["image/png", "image/jpeg", "image/webp"])
+          .optional()
+          .default("image/png"),
+        description: z
+          .string()
+          .optional()
+          .describe(
+            "Brief description of what the screenshot shows, if provided by user"
+          ),
+      })
+    ),
+    execute: async ({
+      imageUrl,
+      imageBase64,
+      mimeType,
+    }: {
+      imageUrl?: string;
+      imageBase64?: string;
+      mimeType?: "image/png" | "image/jpeg" | "image/webp";
+      description?: string;
+    }): Promise<JobImportResult> => {
+      let finalBase64 = imageBase64;
+      let finalMime: "image/png" | "image/jpeg" | "image/webp" = mimeType ?? "image/png";
+
+      // Use tool params first, then fall back to message attachment
+      const resolvedUrl = imageUrl ?? latestImageAttachment?.url;
+
+      if (!finalBase64 && resolvedUrl) {
+        if (resolvedUrl.startsWith("data:")) {
+          // data: URL — extract base64
+          const commaIdx = resolvedUrl.indexOf(",");
+          if (commaIdx !== -1) {
+            finalBase64 = resolvedUrl.slice(commaIdx + 1);
+            const mimeMatch = resolvedUrl.match(/data:([^;]+)/);
+            if (mimeMatch && ["image/png", "image/jpeg", "image/webp"].includes(mimeMatch[1])) {
+              finalMime = mimeMatch[1] as "image/png" | "image/jpeg" | "image/webp";
+            }
+          }
+        } else {
+          // Regular URL — fetch it
+          try {
+            const imgRes = await fetch(resolvedUrl);
+            const buf = await imgRes.arrayBuffer();
+            finalBase64 = Buffer.from(buf).toString("base64");
+            const ct = imgRes.headers.get("content-type") ?? "";
+            if (["image/png", "image/jpeg", "image/webp"].includes(ct)) {
+              finalMime = ct as "image/png" | "image/jpeg" | "image/webp";
+            }
+          } catch {
+            return {
+              importedCount: 0,
+              jobs: [],
+              errorMessage: "Failed to fetch the image. Please try sharing it again.",
+            };
+          }
+        }
+      }
+
+      if (!finalBase64) {
+        return {
+          importedCount: 0,
+          jobs: [],
+          errorMessage:
+            "Please share a screenshot first by clicking the attachment icon, then ask me to import it.",
+        };
+      }
+
+      const { processScreenshotImport } = await import("@/lib/jobs/screenshot-import");
+      const supabase = await createClient();
+      const result = await processScreenshotImport(supabase, userId, finalBase64, finalMime);
+
+      return {
+        importedCount: result.importedCount,
+        jobs: result.jobs.map((j) => ({
+          company: j.company,
+          title: j.title,
+          isNew: j.isNew,
+          alreadyApplied: j.alreadyApplied,
+          applicationId: j.applicationId,
+          warningMessage: j.warningMessage,
+          status: j.status,
+        })),
+        errorMessage: result.errorMessage,
       };
     },
   });

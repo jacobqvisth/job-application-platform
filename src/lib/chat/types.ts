@@ -253,3 +253,21 @@ export interface LinkedInShareData {
   occasion: string;
   isConnected: boolean;
 }
+
+// ─── Phase D1b: Screenshot Import ──────────────────────────────────────────
+
+export interface ImportedJobSummary {
+  company: string;
+  title: string;
+  isNew: boolean;
+  alreadyApplied: boolean;
+  applicationId?: string;
+  warningMessage?: string;
+  status: string;
+}
+
+export interface JobImportResult {
+  importedCount: number;
+  jobs: ImportedJobSummary[];
+  errorMessage?: string;
+}

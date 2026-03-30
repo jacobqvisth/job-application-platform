@@ -458,6 +458,7 @@ export interface AdzunaJobResult {
   remote_type: 'remote' | 'hybrid' | 'onsite' | 'unknown';
   posted_at: string | null;
   match_score: number; // computed server-side before returning
+  alreadyApplied?: boolean; // set by batch fingerprint check in search API
 }
 
 // Browser Extension types (Phase 6)

@@ -280,3 +280,40 @@ Phase D3 — Chat integration: `getDiscoveredJobs` tool (Tool 17), `searchJobs` 
 - **Ingest path wiring:** `src/app/api/extension/save-job/route.ts` replaced URL-only dedup with `findOrCreateJobListing`; maps all ATS types (teamtailor/varbi/jobylon/reachmee/greenhouse/lever/workday/linkedin/unknown→manual) to `JobSource`; returns `alreadyApplied`, `alreadySaved`, `warningMessage`, `appliedAt` in response. `src/lib/chat/tools.ts` `saveJobToTrackerTool` wired through dedup service; `SaveJobToTrackerResult` extended with `alreadyApplied`, `warningMessage`, `jobListingId` fields. `src/lib/data/job-listings.ts` `upsertJobListings` now enriches all cron-ingested records with normalization fields.
 - **UI updates:** `src/components/chat/save-job-confirmation.tsx` adds amber "Already Applied" card (AlertTriangle icon) with applied date + link, shown when `alreadyApplied: true`, in addition to existing blue "Already in tracker" and green "Saved" states. `extension/content.js` save button handler now shows `.jac-warn-applied` (orange) and `.jac-warn-saved` (yellow) inline banners before any existing results; CSS classes added to `getSidebarCSS()`.
 - **Build result:** `npx tsc --noEmit` — 0 errors. `npm run lint` — 0 warnings. `npm run build` — all routes compiled successfully. **Next step:** Apply migration `016_universal_job_index.sql` via Supabase MCP, then deploy with `vercel --prod --yes` and run E2E suite.
+
+---
+
+## Phase D1b — Screenshot Import + Gmail Linking + Jobs Page Enhancements
+
+**Date:** 2026-03-30
+
+### What was built
+- **Gmail classify enhancement:** `src/lib/gmail/classify.ts` now runs a second Haiku pass on all non-general classified emails to extract company + title. On success, `findOrCreateJobListing` is called (`source: 'email'`) and `emails.job_listing_id` is set. For `interview_invite` / `offer` emails, the linked job listing is marked `has_applied = true` (implying an application was submitted). Extraction is wrapped in try/catch so failures are non-blocking.
+- **Screenshot import service:** `src/lib/jobs/screenshot-import.ts` — shared `processScreenshotImport()` function. Calls Claude Sonnet (vision) to extract all jobs from a screenshot, then deduplicates each via `findOrCreateJobListing(source: 'screenshot')`. For jobs with status `applied` or `interviewing`, creates an `applications` row and calls `markJobListingAsApplied`. Returns `ScreenshotImportResult` with per-job `isNew`, `alreadyApplied`, `applicationId`, `warningMessage`.
+- **Screenshot import API:** `POST /api/jobs/import-screenshot` — standard Supabase session auth, accepts `imageBase64` + `mimeType`, calls shared service, returns 422 for extraction failures.
+- **Chat Tool 17 — importJobScreenshot:** Added to `src/lib/chat/tools.ts`. Factory takes optional `latestImageAttachment` closure from message context. Handles `data:` URLs, regular URLs (fetches + converts to base64), and falls back gracefully with a prompt to share an image. Registered in `src/app/api/chat/route.ts` with attachment extraction from latest message.
+- **JobImportCard:** `src/components/chat/job-import-card.tsx` — shows import header, per-job rows with status badges (`Applied`, `Interviewing`, `Rejected`) and result badges (`Added` in emerald, `Already applied` in amber, `Tracked`), summary line, and link to `/dashboard/jobs`. Wired into `chat-message.tsx` for `importJobScreenshot` tool results.
+- **Jobs page enhancements:** Source badges (`Platsbanken`=blue, `LinkedIn`=indigo, `Teamtailor`=violet, `Email`=gray, `Screenshot`=emerald, etc.) on `JobCard` for `JobListing` type. Applied status badge on cards where `has_applied=true`, linking to the application when `application_id` is set. Multi-source filter button in Discovered tab (shows jobs with `all_sources.length > 1` in amber). Batch fingerprint check in `/api/jobs/search` (both JobTechDev + Adzuna paths) marks results the user already applied to with `alreadyApplied=true`; job cards show a green `✓ Applied` badge.
+
+### Files changed
+- Modified: `src/lib/gmail/classify.ts` — added job extraction + job_listing linking
+- New: `src/lib/jobs/screenshot-import.ts` — shared screenshot import logic
+- New: `src/app/api/jobs/import-screenshot/route.ts` — screenshot import API route
+- Modified: `src/lib/chat/tools.ts` — added `importJobScreenshotTool` (Tool 17)
+- Modified: `src/lib/chat/types.ts` — added `JobImportResult`, `ImportedJobSummary` types
+- Modified: `src/app/api/chat/route.ts` — registered `importJobScreenshot`, extracts latest image attachment
+- New: `src/components/chat/job-import-card.tsx` — JobImportCard generative UI component
+- Modified: `src/components/chat/chat-message.tsx` — wired JobImportCard, added loading label
+- Modified: `src/components/jobs/job-card.tsx` — source badges, applied status, `alreadyApplied` prop
+- Modified: `src/components/jobs/job-search-client.tsx` — multi-source filter, `alreadyApplied` passed to cards
+- Modified: `src/lib/types/database.ts` — added `alreadyApplied?: boolean` to `AdzunaJobResult`
+- Modified: `src/app/api/jobs/search/route.ts` — batch fingerprint check in both search paths
+
+### Migration applied
+None — all new features use existing D1a schema columns and tables.
+
+### Test result
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 warnings. `npm run build` — TypeScript compiled successfully; pre-render failure is pre-existing Supabase env var issue in local build.
+
+### Next step
+Apply D1b to production: `vercel --prod --yes`. Then run E2E suite against production. Phase D2 can build on top of this — deeper email→application auto-linking, bulk import UI in the Jobs page.

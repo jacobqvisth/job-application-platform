@@ -20,6 +20,7 @@ import { SearchInsightsCard } from "./search-insights-card";
 import { LinkedInShareCard } from "./linkedin-share-card";
 import { SaveSearchConfirmation } from "./save-search-confirmation";
 import { SaveJobConfirmation } from "./save-job-confirmation";
+import { JobImportCard } from "./job-import-card";
 import type {
   SearchJobsResult,
   ApplicationStatusResult,
@@ -37,6 +38,7 @@ import type {
   LinkedInShareData,
   SaveJobSearchResult,
   SaveJobToTrackerResult,
+  JobImportResult,
 } from "@/lib/chat/types";
 
 const TOOL_LOADING_LABELS: Record<string, string> = {
@@ -56,6 +58,7 @@ const TOOL_LOADING_LABELS: Record<string, string> = {
   shareOnLinkedIn: "Preparing your LinkedIn post...",
   saveJobSearch: "Saving your job search...",
   saveJobToTracker: "Saving job to tracker...",
+  importJobScreenshot: "Importing jobs from screenshot...",
 };
 
 interface ChatMessageProps {
@@ -117,6 +120,8 @@ function ToolResult({
       return <SaveSearchConfirmation data={result as SaveJobSearchResult} onAppend={onAppend} />;
     case "saveJobToTracker":
       return <SaveJobConfirmation data={result as SaveJobToTrackerResult} onAppend={onAppend} />;
+    case "importJobScreenshot":
+      return <JobImportCard data={result as JobImportResult} />;
     default:
       return null;
   }

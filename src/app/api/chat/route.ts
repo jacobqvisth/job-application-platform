@@ -18,6 +18,7 @@ import {
   shareOnLinkedInTool,
   saveJobSearchTool,
   saveJobToTrackerTool,
+  importJobScreenshotTool,
 } from '@/lib/chat/tools';
 import { buildSystemPrompt } from '@/lib/chat/system-prompt';
 import { extractFlowContext } from '@/lib/chat/flow-context';
@@ -33,7 +34,16 @@ export async function POST(req: Request) {
 
   if (!user) return new Response('Unauthorized', { status: 401 });
 
-  const { messages, conversationId } = await req.json();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rawBody = await req.json() as any;
+  const messages: import('ai').UIMessage[] = rawBody.messages ?? [];
+  const conversationId: string | undefined = rawBody.conversationId;
+
+  // Extract latest image attachment for importJobScreenshot tool
+  const rawLatestMsg = (rawBody.messages ?? [])[rawBody.messages?.length - 1];
+  const latestImageAttachment = ((rawLatestMsg?.experimental_attachments ?? []) as Array<{ url?: string; contentType?: string; name?: string }>).find(
+    (a) => a.contentType?.startsWith("image/")
+  );
 
   // Fetch user context for system prompt
   const [profileRes, summaryRes, recentAppsRes] = await Promise.all([
@@ -83,6 +93,7 @@ export async function POST(req: Request) {
     shareOnLinkedIn: shareOnLinkedInTool(user.id),
     saveJobSearch: saveJobSearchTool(user.id),
     saveJobToTracker: saveJobToTrackerTool(user.id),
+    importJobScreenshot: importJobScreenshotTool(user.id, latestImageAttachment),
   };
 
   // Convert UIMessages to ModelMessages for streamText

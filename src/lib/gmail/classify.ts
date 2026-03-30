@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
+import { findOrCreateJobListing } from "@/lib/jobs/dedup";
 import type { EmailClassification } from "@/lib/types/database";
 
 const VALID_CLASSIFICATIONS: EmailClassification[] = [
@@ -102,23 +103,81 @@ Respond with ONLY the category name, nothing else.`,
       const classification =
         content.type === "text" ? content.text.trim().toLowerCase() : "";
 
-      if (
-        VALID_CLASSIFICATIONS.includes(classification as EmailClassification)
-      ) {
-        await supabase
-          .from("emails")
-          .update({ classification })
-          .eq("id", email.id);
+      const finalClassification = VALID_CLASSIFICATIONS.includes(classification as EmailClassification)
+        ? (classification as EmailClassification)
+        : "general";
 
-        classified++;
-      } else {
-        // If Claude returns something unexpected, mark as general
-        await supabase
-          .from("emails")
-          .update({ classification: "general" })
-          .eq("id", email.id);
+      await supabase
+        .from("emails")
+        .update({ classification: finalClassification })
+        .eq("id", email.id);
 
-        classified++;
+      classified++;
+
+      // Second pass: extract job data for non-general emails and link to job_listings
+      if (finalClassification !== "general") {
+        try {
+          const extractionResponse = await anthropic.messages.create({
+            model: "claude-haiku-4-5-20251001",
+            max_tokens: 200,
+            messages: [{
+              role: "user",
+              content: `Extract the company name and job title/role from this job-related email. If you cannot determine them, return null for that field.
+
+Subject: ${email.subject}
+From: ${email.from_address}
+Preview: ${(email.body_preview ?? "").slice(0, 300)}
+
+Respond with ONLY valid JSON: {"company": "...", "title": "..."} or {"company": null, "title": null}`,
+            }],
+          });
+
+          const extractContent = extractionResponse.content[0];
+          if (extractContent.type === "text") {
+            const extracted = JSON.parse(extractContent.text.trim()) as {
+              company: string | null;
+              title: string | null;
+            };
+
+            if (extracted.company && extracted.title) {
+              // Extract first URL from body_preview
+              const urlMatch = (email.body_preview ?? "").match(/https?:\/\/[^\s"'>]+/);
+              const jobUrl = urlMatch ? urlMatch[0] : "";
+
+              const dedupResult = await findOrCreateJobListing(supabase, {
+                userId,
+                title: extracted.title,
+                company: extracted.company,
+                url: jobUrl,
+                source: "email",
+              });
+
+              // Link email to job listing
+              await supabase
+                .from("emails")
+                .update({ job_listing_id: dedupResult.jobListingId })
+                .eq("id", email.id);
+
+              // If interview invite or offer, mark job as applied (implied we submitted an application)
+              if (
+                (finalClassification === "interview_invite" || finalClassification === "offer") &&
+                !dedupResult.alreadyApplied
+              ) {
+                await supabase
+                  .from("job_listings")
+                  .update({
+                    has_applied: true,
+                    applied_at: new Date().toISOString(),
+                    is_saved: true,
+                  })
+                  .eq("id", dedupResult.jobListingId);
+              }
+            }
+          }
+        } catch (extractErr) {
+          console.error(`Failed to extract job data from email ${email.id}:`, extractErr);
+          // Continue without linking — don't break the overall classify flow
+        }
       }
     } catch (err) {
       console.error(`Error classifying email ${email.id}:`, err);
