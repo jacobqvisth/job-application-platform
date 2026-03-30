@@ -300,6 +300,8 @@ export interface UserProfileData {
   linkedin_url: string | null;
   website_url: string | null;
   github_url: string | null;
+  // Cover letter text (added in migration 015 for ReachMee extension autofill)
+  cover_letter: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -457,12 +459,13 @@ export interface ExtensionProfile {
   current_title: string | null;   // derived: title from most recent work_history entry
   current_company: string | null; // derived: company from most recent work_history entry
   summary: string | null;
+  cover_letter: string | null;    // for ReachMee prof_personalmotivation autofill
 }
 
 export interface FormFieldMapping {
   id: string;
   user_id: string;
-  ats_type: 'workday' | 'greenhouse' | 'lever';
+  ats_type: 'workday' | 'greenhouse' | 'lever' | 'varbi' | 'teamtailor' | 'jobylon' | 'reachmee';
   field_identifier: string;
   profile_key: string;
   is_user_corrected: boolean;

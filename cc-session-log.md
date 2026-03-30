@@ -211,3 +211,36 @@ Phase 10c: Job discovery improvements, saved search management, and push notific
 - **Personligt Brev generation:** `src/app/api/application/draft/route.ts` extended with optional `language: "sv" | "en"` parameter and auto-detection from job description keywords; Swedish path replaces system prompt and cover letter instruction with Swedish-specific "personligt brev" guidance (warm/personal tone, Swedish norms, correct format with date + greeting + 3–4 paragraphs + sign-off); response adds `letter_type` and `language` fields while keeping `cover_letter` for backwards compat. `src/components/draft/draft-wizard.tsx` gets a 🇸🇪/🇬🇧 language toggle, auto-detects Swedish from JD, localises tone labels, and shows "Personligt Brev" tab title when Swedish.
 - **Test result:** `npx tsc --noEmit` — 0 errors. `npm run lint` — 0 warnings. `npm run build` compiles successfully; pre-render fails only on missing Supabase env vars in worktree (pre-existing, unrelated).
 - **Next step:** Create `resume-photos` Supabase Storage bucket (public) via Supabase MCP before deploying. After deploy, manually test: (1) create resume with Swedish template → verify preview renders with accent titles, (2) upload photo → check preview, (3) export PDF + DOCX, (4) generate personligt brev from Swedish job ad → verify Swedish output format.
+
+---
+
+## Phase S5 — Jobylon + ReachMee Extension Adapters
+
+**Date:** 2026-03-29
+
+### What was built
+Chrome extension adapters for the #2 and #3 ATS platforms in Sweden, covering 260 + 178 sites respectively.
+
+**New files:**
+- `extension/mappers/jobylon.js` — adapter for `emp.jobylon.com`: exports `isApplicationPage`, `getJobInfo`, `detectFields`, `fillField`. Field map: `#id_first_name`, `#id_last_name`, `#id_email`, `#id_ln_url`, `#id_phone_number` (intl-tel-input). Screening questions detected via `input[name^="job_question_"]`. Consent fields skipped (terms, csrfmiddlewaretoken, social_title, session_id, ab_test, original_referrer, tracking_tags, ln_json_sign, ln_json_awli). Cover letter (`#id_message`) marked manual (rich text editor).
+- `extension/content-jobylon.js` — content script for `emp.jobylon.com`. Application page (`/applications/jobs/{id}/create`) → sidebar + fill button + MutationObserver. Job detail page (`/jobs/{id}`) → save/draft widget, no fill button. Career pages → no injection.
+- `extension/mappers/reachmee.js` — adapter for `*.reachmee.com`: supports both legacy (`/apply` URL) and attract subdomain (`path.endsWith('/apply')`). Field map: `prof_email`, `prof_emailrepeat` (same value), `prof_firstname`, `prof_surname`, `prof_telephone`, `prof_address`, `prof_postalcode`, `prof_postalcity`, `prof_personalmotivation` (cover letter, CAN be auto-filled). Employer-preference selects skipped (prefcareer, prefcareerorient, prefposition, np_prefcountry, np_prefcounty, np_preftown, prof_countrycode). Consent fields blocked (acceptterms, policyid, login, password).
+- `extension/content-reachmee.js` — content script for `*.reachmee.com`. Same sidebar pattern; legacy job detail page detected via `/main?job_id={n}`, attract via `/jobs/{id}` (not `/apply`).
+- `supabase/migrations/015_profile_cover_letter.sql` — adds `cover_letter text` column to `user_profile_data`. **Not yet applied — apply via Supabase MCP.**
+
+**Modified files:**
+- `extension/manifest.json` — added `*://*.reachmee.com/*` and `*://emp.jobylon.com/*` to `host_permissions`; added two new `content_scripts` entries.
+- `src/lib/types/database.ts` — added `cover_letter: string | null` to `UserProfileData` and `ExtensionProfile`; expanded `FormFieldMapping.ats_type` union to include `varbi | teamtailor | jobylon | reachmee`.
+- `src/app/api/extension/profile/route.ts` — added `cover_letter: pd?.cover_letter ?? null` to the returned `ExtensionProfile` object.
+- `src/app/api/extension/field-mappings/route.ts` — expanded valid `ats_type` list from `[workday, greenhouse, lever]` to include `varbi, teamtailor, jobylon, reachmee`.
+- `e2e/extension-api.spec.ts` — added 3 new tests: `jobylon` ats_type returns 401 (auth, not 400 validation), `reachmee` ats_type returns 401, unknown ats_type returns 400 or 401.
+
+### Test result
+- `npm run lint` — 0 errors, 0 warnings (removed unused `isCareerPage` function).
+- `npm run build` — TypeScript compiled successfully; pre-render fails only on missing Supabase env vars (pre-existing, unrelated to this work).
+
+### Next steps
+1. Apply migration `015_profile_cover_letter.sql` via Supabase MCP.
+2. Deploy with `vercel --prod --yes`.
+3. Run `TEST_BASE_URL=https://job-application-platform-lake.vercel.app npm run test:e2e` — all tests should pass.
+4. Load the updated extension in Chrome (reload unpacked) to test on `emp.jobylon.com` and a `*.reachmee.com` site.

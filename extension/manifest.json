@@ -21,6 +21,8 @@
     "*://*.lever.co/*",
     "*://*.linkedin.com/*",
     "*://*.varbi.com/*",
+    "*://*.reachmee.com/*",
+    "*://emp.jobylon.com/*",
     "*://job-application-platform-lake.vercel.app/*",
     "*://*/*"
   ],
@@ -50,6 +52,16 @@
     {
       "matches": ["*://*.varbi.com/*"],
       "js": ["content-varbi.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["*://emp.jobylon.com/*"],
+      "js": ["content-jobylon.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["*://*.reachmee.com/*"],
+      "js": ["content-reachmee.js"],
       "run_at": "document_idle"
     },
     {

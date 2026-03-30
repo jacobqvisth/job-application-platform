@@ -89,6 +89,7 @@ export async function GET(request: NextRequest) {
     current_title: currentTitle,
     current_company: currentCompany,
     summary: pd?.summary ?? null,
+    cover_letter: pd?.cover_letter ?? null,
   };
 
   const marketCode = primaryMarket?.market_code ?? DEFAULT_MARKET;

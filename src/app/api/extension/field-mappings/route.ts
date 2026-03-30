@@ -24,9 +24,10 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const atsType = searchParams.get('ats_type');
 
-  if (!atsType || !['workday', 'greenhouse', 'lever'].includes(atsType)) {
+  const VALID_ATS_TYPES = ['workday', 'greenhouse', 'lever', 'varbi', 'teamtailor', 'jobylon', 'reachmee'];
+  if (!atsType || !VALID_ATS_TYPES.includes(atsType)) {
     return NextResponse.json(
-      { error: 'ats_type must be workday, greenhouse, or lever' },
+      { error: `ats_type must be one of: ${VALID_ATS_TYPES.join(', ')}` },
       { status: 400, headers: CORS_HEADERS }
     );
   }
