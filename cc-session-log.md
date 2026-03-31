@@ -373,3 +373,21 @@ None — no schema changes; `job_listing_id` on `applications` and `application_
 
 ### Next step
 Deploy to production: `vercel --prod --yes`. Run E2E suite. Phase E2 could add bulk-apply flows, or move to the next planned phase (e.g. answer-library AI suggestions or morning brief improvements).
+
+## Phase E2 — AI Job Scoring (Semantic Match Score + Reason)
+
+**Date:** 2026-03-31
+
+### What was built
+- **Migration `018_job_ai_scoring.sql`**: Adds `match_reason TEXT` and `ai_scored_at TIMESTAMPTZ` columns to `job_listings`, with a partial index on unscored jobs (`WHERE ai_scored_at IS NULL`). Apply via Supabase MCP.
+- **`src/lib/jobs/ai-score.ts`**: Batch Haiku scoring service — fetches user profile (skills, work history, summary), scores up to 30 unscored job listings in batches of 10, updates `match_score` + `match_reason` + `ai_scored_at` atomically. Returns count of scored jobs.
+- **Automatic scoring hooks**: Fire-and-forget `scoreUnscoredJobsForUser` added after (1) cron job-discovery searches complete (all affected users), (2) `searchJobsTool` jobtechdev/adzuna persist calls. Both are `void` + catch to never block response.
+- **Tool 20 `scoreJobLeads`**: Chat tool that scores unscored leads on demand. Registered in `/api/chat/route.ts`. System prompt updated with Tool 20 description.
+- **`POST /api/jobs/score-leads`**: On-demand endpoint for client-side triggering. Auth-gated, returns `{ scored: number }`.
+- **UI**: `JobCard` shows `match_reason` (italic, muted) below the match bar. `DiscoveredJobsCard` shows `matchReason` under each job title. Morning brief shows "N high match (80%+)" inline with new leads count.
+
+### Test result
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 warnings. `npm run build` — TypeScript compiled clean; pre-render failure is pre-existing Supabase env var issue in worktree build.
+
+### Next step
+Apply migration 018 via Supabase MCP, then deploy: `vercel --prod --yes`. Migration must be applied before deploy or UPDATE queries will fail silently.

@@ -194,6 +194,12 @@ export function JobCard({ job, onSave, isSaved: initialSaved = false, alreadyApp
               style={{ width: `${score}%` }}
             />
           </div>
+          {/* Match reason — only when AI-scored */}
+          {'match_reason' in job && (job as JobListing).match_reason && (
+            <p className="text-xs text-muted-foreground italic mt-0.5 max-w-[200px] leading-tight text-right">
+              {(job as JobListing).match_reason}
+            </p>
+          )}
         </div>
       </div>
 

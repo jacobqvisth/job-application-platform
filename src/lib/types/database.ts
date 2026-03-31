@@ -432,6 +432,9 @@ export interface JobListing {
   has_applied: boolean;
   applied_at: string | null;
   application_id: string | null;
+  // Phase E2: AI scoring
+  match_reason: string | null;
+  ai_scored_at: string | null;
 }
 
 export interface JobListingSource {

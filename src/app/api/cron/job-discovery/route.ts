@@ -5,6 +5,7 @@ import { upsertJobListings } from '@/lib/data/job-listings';
 import { computeMatchScore } from '@/lib/utils/match-score';
 import { fetchJobTechDevRaw, hitToJobResult } from '@/lib/chat/jobtechdev-search';
 import { getMarketConfig } from '@/lib/markets';
+import { scoreUnscoredJobsForUser } from '@/lib/jobs/ai-score';
 import type { UserProfileData, SavedSearch } from '@/lib/types/database';
 
 const MIN_MATCH_SCORE = 40;
@@ -212,6 +213,12 @@ export async function GET(request: NextRequest) {
 
     // Polite delay between requests
     await new Promise((r) => setTimeout(r, 100));
+  }
+
+  // After all searches, fire-and-forget AI scoring for all affected users
+  const affectedUserIds = [...new Set(searches.map((s) => s.user_id))];
+  for (const uid of affectedUserIds) {
+    void scoreUnscoredJobsForUser(uid, adminSupabase).catch(() => {});
   }
 
   return NextResponse.json({

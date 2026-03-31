@@ -21,6 +21,7 @@ import {
   importJobScreenshotTool,
   getDiscoveredJobsTool,
   startApplicationTool,
+  scoreJobLeadsTool,
 } from '@/lib/chat/tools';
 import { buildSystemPrompt } from '@/lib/chat/system-prompt';
 import { extractFlowContext } from '@/lib/chat/flow-context';
@@ -98,6 +99,7 @@ export async function POST(req: Request) {
     importJobScreenshot: importJobScreenshotTool(user.id, latestImageAttachment),
     getDiscoveredJobs: getDiscoveredJobsTool(user.id),
     startApplication: startApplicationTool(user.id),
+    scoreJobLeads: scoreJobLeadsTool(user.id),
   };
 
   // Convert UIMessages to ModelMessages for streamText

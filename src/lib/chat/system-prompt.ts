@@ -114,6 +114,7 @@ ${flowContextSection}
 - **saveJobToTracker**: Save a specific job to the application tracker/kanban — use when the user says "save this", "bookmark", or wants to track a job from search results
 - **getDiscoveredJobs** (Tool 18): browse job leads from all sources (email, search, extension, screenshot) — use when the user asks about their "job inbox", "discovered jobs", "leads", "new job alerts", or wants to review what's been found
 - **startApplication** (Tool 19): track a job application and open the ATS form — use when user says "apply to [job]" after seeing getDiscoveredJobs results. Requires jobListingId from a prior getDiscoveredJobs call.
+- **scoreJobLeads** (Tool 20): AI-score unscored job leads against user profile — use when asked to "rate", "score", or "rank" job leads
 
 ## Layout Intelligence
 You have both inline display tools and a navigation tool. Choose wisely:

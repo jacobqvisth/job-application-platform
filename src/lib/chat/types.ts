@@ -303,7 +303,16 @@ export interface DiscoveredJobsResult {
     applicationId: string | null;
     createdAt: string;
     postedAt: string | null;
+    matchReason: string | null;
+    ai_scored_at: string | null;
   }>;
   sourceBreakdown: Record<string, number>;  // e.g. { platsbanken: 12, email: 3, screenshot: 1 }
   errorMessage?: string;
+}
+
+// ─── Phase E2: Score Job Leads ─────────────────────────────────────────────
+
+export interface ScoreLeadsResult {
+  scored: number;
+  message: string;
 }

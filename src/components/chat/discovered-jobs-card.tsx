@@ -121,6 +121,11 @@ export function DiscoveredJobsCard({ data }: Props) {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{job.company}</p>
                 <p className="text-xs text-muted-foreground truncate">{job.title}</p>
+                {job.matchReason && (
+                  <p className="text-xs text-muted-foreground italic leading-tight truncate">
+                    {job.matchReason}
+                  </p>
+                )}
               </div>
 
               {/* Middle: location + source */}

@@ -25,11 +25,13 @@ import type {
   JobImportResult,
   DiscoveredJobsResult,
   StartApplicationResult,
+  ScoreLeadsResult,
 } from './types';
 import { markJobListingAsApplied } from '@/lib/jobs/dedup';
 import { searchAdzunaLive } from './adzuna-search';
 import { searchJobTechDev } from './jobtechdev-search';
 import { persistSearchResults } from '@/lib/data/job-listings';
+import { scoreUnscoredJobsForUser } from '@/lib/jobs/ai-score';
 import { fetchInsightsData } from './insights-data';
 import { detectJobSearchStage } from './stage-detection';
 import { detectPatterns } from './pattern-detection';
@@ -91,6 +93,13 @@ export function searchJobsTool(userId: string) {
             if (filtered.length > 0) results = filtered;
           }
           void persistSearchResults(userId, results.slice(0, 10), 'platsbanken');
+          // Fire-and-forget AI scoring for newly persisted results
+          void (async () => {
+            try {
+              const supabase = await createClient();
+              await scoreUnscoredJobsForUser(userId, supabase);
+            } catch {}
+          })();
           return { jobs: results.slice(0, 10), total, query, source: 'live' };
         }
       } else {
@@ -112,6 +121,13 @@ export function searchJobsTool(userId: string) {
         }
 
         void persistSearchResults(userId, results.slice(0, 10), 'adzuna');
+        // Fire-and-forget AI scoring for newly persisted results
+        void (async () => {
+          try {
+            const supabase = await createClient();
+            await scoreUnscoredJobsForUser(userId, supabase);
+          } catch {}
+        })();
         return {
           jobs: results.slice(0, 10),
           total: results.length,
@@ -1615,7 +1631,7 @@ export function getDiscoveredJobsTool(userId: string) {
 
       let query = supabase
         .from('job_listings')
-        .select('id, title, company, location, source, all_sources, url, has_applied, applied_at, application_id, created_at, posted_at')
+        .select('id, title, company, location, source, all_sources, url, has_applied, applied_at, application_id, created_at, posted_at, match_reason, ai_scored_at')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(Math.min(limit, 20));
@@ -1643,6 +1659,8 @@ export function getDiscoveredJobsTool(userId: string) {
         applicationId: l.application_id,
         createdAt: l.created_at,
         postedAt: l.posted_at,
+        matchReason: l.match_reason ?? null,
+        ai_scored_at: l.ai_scored_at ?? null,
       }));
 
       // Source breakdown (query all, not just the filtered slice)
@@ -1716,6 +1734,30 @@ export function startApplicationTool(userId: string) {
       await markJobListingAsApplied(supabase, listing.id, newApp.id);
 
       return { success: true, applicationId: newApp.id, company: listing.company, role: listing.title, url: listing.url, alreadyExisted: false };
+    },
+  });
+}
+
+// ─── Tool 20: Score Job Leads ─────────────────────────────────────────────────
+
+export function scoreJobLeadsTool(userId: string) {
+  return tool({
+    description:
+      "Score unscored job leads against the user's profile using AI. Use when the user asks \"score my leads\", \"rate my jobs\", \"which jobs match me best\", or after discovering new leads and wanting match quality.",
+    inputSchema: zodSchema(z.object({})),
+    execute: async (): Promise<ScoreLeadsResult> => {
+      const supabase = await createClient();
+      const scored = await scoreUnscoredJobsForUser(userId, supabase);
+      if (scored === 0) {
+        return {
+          scored: 0,
+          message: 'All your job leads are already scored, or you have no leads yet.',
+        };
+      }
+      return {
+        scored,
+        message: `Scored ${scored} job ${scored === 1 ? 'lead' : 'leads'} against your profile. Check the Jobs page to see updated match scores.`,
+      };
     },
   });
 }

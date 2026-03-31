@@ -125,6 +125,9 @@ export function MorningBrief({ data, onSelect }: Props) {
               <span className="text-blue-500">●</span>
               <span>
                 <strong>{data.newLeadsCount} new job {data.newLeadsCount === 1 ? "lead" : "leads"}</strong>
+                {data.highMatchLeadsCount > 0 && (
+                  <span className="text-green-600 font-medium"> · {data.highMatchLeadsCount} high match (80%+)</span>
+                )}
                 {data.newLeadsSources.length > 0 && (
                   <span className="text-muted-foreground"> from {data.newLeadsSources.join(", ")}</span>
                 )}

@@ -14,6 +14,7 @@ export interface MorningBriefData {
   insights: SearchInsight[];
   newLeadsCount: number;
   newLeadsSources: string[];
+  highMatchLeadsCount: number;
 }
 
 const STAGE_MESSAGES: Record<JobSearchStage, string> = {
@@ -37,7 +38,7 @@ export async function getMorningBriefData(): Promise<MorningBriefData | null> {
 
   const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-  const [appsRes, eventsRes, newLeadsCountRes, newLeadSourceRowsRes] = await Promise.all([
+  const [appsRes, eventsRes, newLeadsCountRes, newLeadSourceRowsRes, highMatchCountRes] = await Promise.all([
     supabase
       .from("applications")
       .select("id, company, role, status, updated_at, applied_at")
@@ -59,6 +60,13 @@ export async function getMorningBriefData(): Promise<MorningBriefData | null> {
       .eq("user_id", user.id)
       .eq("has_applied", false)
       .gte("created_at", oneDayAgo.toISOString()),
+    supabase
+      .from("job_listings")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("has_applied", false)
+      .gte("match_score", 80)
+      .gte("created_at", oneDayAgo.toISOString()),
   ]);
 
   const apps = appsRes.data ?? [];
@@ -66,6 +74,7 @@ export async function getMorningBriefData(): Promise<MorningBriefData | null> {
   const recentEvents = (eventsRes.data ?? []).filter((e) => userAppIds.has(e.application_id));
   const newLeadsCount = newLeadsCountRes.count ?? 0;
   const newLeadsSources = [...new Set((newLeadSourceRowsRes.data ?? []).map((r) => r.source))];
+  const highMatchLeadsCount = highMatchCountRes.count ?? 0;
 
   const userName = user.user_metadata?.full_name ?? null;
 
@@ -182,5 +191,6 @@ export async function getMorningBriefData(): Promise<MorningBriefData | null> {
     insights,
     newLeadsCount,
     newLeadsSources,
+    highMatchLeadsCount,
   };
 }
