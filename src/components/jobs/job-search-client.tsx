@@ -38,22 +38,25 @@ const COUNTRIES = [
   { code: "nz", label: "New Zealand" },
   { code: "pl", label: "Poland" },
   { code: "sg", label: "Singapore" },
+  { code: "se", label: "Sweden" },
   { code: "za", label: "South Africa" },
 ];
 
 interface JobSearchClientProps {
   initialSavedSearches: SavedSearch[];
   initialDiscoveredListings: JobListing[];
+  initialCountry?: string;
 }
 
 export function JobSearchClient({
   initialSavedSearches,
   initialDiscoveredListings,
+  initialCountry,
 }: JobSearchClientProps) {
   // Search form state
   const [query, setQuery] = useState("");
   const [location, setLocation] = useState("");
-  const [country, setCountry] = useState("gb");
+  const [country, setCountry] = useState(initialCountry ?? "gb");
   const [salaryMin, setSalaryMin] = useState("");
   const [remoteOnly, setRemoteOnly] = useState(false);
 

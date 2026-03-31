@@ -374,20 +374,26 @@ None — no schema changes; `job_listing_id` on `applications` and `application_
 ### Next step
 Deploy to production: `vercel --prod --yes`. Run E2E suite. Phase E2 could add bulk-apply flows, or move to the next planned phase (e.g. answer-library AI suggestions or morning brief improvements).
 
-## Phase E2 — AI Job Scoring (Semantic Match Score + Reason)
+---
+
+## Phase E1b — Sweden + Smart Country Default on Find Jobs
 
 **Date:** 2026-03-31
 
 ### What was built
-- **Migration `018_job_ai_scoring.sql`**: Adds `match_reason TEXT` and `ai_scored_at TIMESTAMPTZ` columns to `job_listings`, with a partial index on unscored jobs (`WHERE ai_scored_at IS NULL`). Apply via Supabase MCP.
-- **`src/lib/jobs/ai-score.ts`**: Batch Haiku scoring service — fetches user profile (skills, work history, summary), scores up to 30 unscored job listings in batches of 10, updates `match_score` + `match_reason` + `ai_scored_at` atomically. Returns count of scored jobs.
-- **Automatic scoring hooks**: Fire-and-forget `scoreUnscoredJobsForUser` added after (1) cron job-discovery searches complete (all affected users), (2) `searchJobsTool` jobtechdev/adzuna persist calls. Both are `void` + catch to never block response.
-- **Tool 20 `scoreJobLeads`**: Chat tool that scores unscored leads on demand. Registered in `/api/chat/route.ts`. System prompt updated with Tool 20 description.
-- **`POST /api/jobs/score-leads`**: On-demand endpoint for client-side triggering. Auth-gated, returns `{ scored: number }`.
-- **UI**: `JobCard` shows `match_reason` (italic, muted) below the match bar. `DiscoveredJobsCard` shows `matchReason` under each job title. Morning brief shows "N high match (80%+)" inline with new leads count.
+- **Sweden added to country dropdown** in `src/components/jobs/job-search-client.tsx` — inserted `{ code: "se", label: "Sweden" }` alphabetically between Singapore and South Africa.
+- **Smart default country** — `JobSearchClient` now accepts `initialCountry?: string` prop; `country` useState initializes to `initialCountry ?? "gb"` instead of hardcoded `"gb"`.
+- **Page wires primary market** — `src/app/(protected)/dashboard/jobs/page.tsx` calls `getPrimaryMarket(supabase, user.id)` in `Promise.all` (wrapped in `.catch(() => null)`) and passes `primaryMarket?.market_code.toLowerCase() ?? "gb"` as `initialCountry`.
+
+### Files changed
+- `src/components/jobs/job-search-client.tsx` — added Sweden, added `initialCountry` prop, dynamic useState init
+- `src/app/(protected)/dashboard/jobs/page.tsx` — imported `getPrimaryMarket`, added to Promise.all, passed `initialCountry` prop
+
+### Migration applied
+None.
 
 ### Test result
-`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 warnings. `npm run build` — TypeScript compiled clean; pre-render failure is pre-existing Supabase env var issue in worktree build.
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 warnings. Build pre-render failure is pre-existing env var issue in worktree, unrelated to these changes.
 
 ### Next step
-Apply migration 018 via Supabase MCP, then deploy: `vercel --prod --yes`. Migration must be applied before deploy or UPDATE queries will fail silently.
+Deploy to production: `vercel --prod --yes`. Verify Sweden appears in dropdown and that a user with SE as primary market sees it pre-selected.
