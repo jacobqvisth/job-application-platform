@@ -350,3 +350,26 @@ None — D3 uses existing schema from migration 017 (D1a).
 
 ### Next step
 Deploy to production: `vercel --prod --yes`. Then run E2E suite. Phase D4 could add deeper inbox management — bulk apply, snooze, dismiss flows — or pivoting to the next planned phase.
+
+## Phase E1 — Apply from Job Lead (One-Click)
+
+**Date:** 2026-03-30
+
+### What was built
+- `POST /api/jobs/start-application` — idempotent API that creates an `applications` row (status: `applied`), calls `markJobListingAsApplied`, and returns application details; 401/404/500 handled correctly
+- `startApplicationTool` (Tool 19) in `src/lib/chat/tools.ts` — same logic for chat context, returns `StartApplicationResult`; registered in `/api/chat/route.ts` and system prompt updated
+- **JobCard Apply button** — shown only for `JobListing` typed jobs where `!applied`; local state (`applied`, `localApplicationId`) tracks post-click state; opens ATS URL in new tab + toast with kanban link
+- **DiscoveredJobsCard Apply button** — per-row apply state via `Set`; replaces external-link icon with "Apply" button; silently fails in chat context
+- `ApplicationStartedCard` component — three states: success (green), already-existed (blue), error (muted); wired into `chat-message.tsx` for `startApplication` tool results
+
+### Files changed
+`src/app/api/jobs/start-application/route.ts` (new), `src/lib/chat/types.ts`, `src/lib/chat/tools.ts`, `src/app/api/chat/route.ts`, `src/lib/chat/system-prompt.ts`, `src/components/jobs/job-card.tsx`, `src/components/chat/discovered-jobs-card.tsx`, `src/components/chat/application-started-card.tsx` (new), `src/components/chat/chat-message.tsx`
+
+### Migration
+None — no schema changes; `job_listing_id` on `applications` and `application_id` on `job_listings` already exist from migration 017.
+
+### Test result
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 warnings. `npm run build` — TypeScript compiled clean; pre-render failure is pre-existing Supabase env var issue in worktree build.
+
+### Next step
+Deploy to production: `vercel --prod --yes`. Run E2E suite. Phase E2 could add bulk-apply flows, or move to the next planned phase (e.g. answer-library AI suggestions or morning brief improvements).

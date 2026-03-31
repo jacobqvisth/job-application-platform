@@ -92,6 +92,7 @@ export function JobCard({ job, onSave, isSaved: initialSaved = false, alreadyApp
   const [expanded, setExpanded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(initialSaved);
+  const [applying, setApplying] = useState(false);
 
   const salary = formatSalary(job.salary_min, job.salary_max);
   const postedDate = formatDate(job.posted_at);
@@ -101,9 +102,10 @@ export function JobCard({ job, onSave, isSaved: initialSaved = false, alreadyApp
   // JobListing-specific fields (not on AdzunaJobResult)
   const isJobListing = "all_sources" in job;
   const allSources = isJobListing ? (job as JobListing).all_sources ?? [] : [];
-  const hasApplied = propAlreadyApplied ?? (isJobListing ? (job as JobListing).has_applied : false);
+  const hasAppliedProp = propAlreadyApplied ?? (isJobListing ? (job as JobListing).has_applied : false);
+  const [applied, setApplied] = useState(hasAppliedProp);
+  const [localApplicationId, setLocalApplicationId] = useState(isJobListing ? (job as JobListing).application_id : null);
   const appliedAt = isJobListing ? (job as JobListing).applied_at : null;
-  const applicationId = isJobListing ? (job as JobListing).application_id : null;
 
   async function handleSave() {
     setSaving(true);
@@ -124,6 +126,34 @@ export function JobCard({ job, onSave, isSaved: initialSaved = false, alreadyApp
       toast.error("Failed to save job. Please try again.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleApply() {
+    setApplying(true);
+    try {
+      const res = await fetch('/api/jobs/start-application', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobListingId: (job as JobListing).id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed');
+
+      window.open(job.url, '_blank', 'noopener,noreferrer');
+
+      setApplied(true);
+      setLocalApplicationId(data.applicationId);
+      toast.success(data.alreadyExists ? 'Already in tracker' : 'Application tracked!', {
+        action: {
+          label: 'View Kanban',
+          onClick: () => router.push('/dashboard/applications'),
+        },
+      });
+    } catch {
+      toast.error('Failed to track application. Please try again.');
+    } finally {
+      setApplying(false);
     }
   }
 
@@ -176,10 +206,10 @@ export function JobCard({ job, onSave, isSaved: initialSaved = false, alreadyApp
             {remote}
           </Badge>
         )}
-        {hasApplied && (
-          applicationId ? (
+        {applied && (
+          localApplicationId ? (
             <Link
-              href={`/dashboard/applications?id=${applicationId}`}
+              href={`/dashboard/applications?id=${localApplicationId}`}
               className="inline-flex items-center gap-1 rounded-full bg-green-100 text-green-700 border border-green-200 px-2 py-0.5 text-xs font-medium hover:bg-green-200 transition-colors"
             >
               <Check className="h-2.5 w-2.5" />
@@ -245,6 +275,27 @@ export function JobCard({ job, onSave, isSaved: initialSaved = false, alreadyApp
             View listing
           </a>
         </Button>
+
+        {isJobListing && !applied && (
+          <Button
+            size="sm"
+            disabled={applying}
+            onClick={handleApply}
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            {applying ? (
+              <>
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                Tracking…
+              </>
+            ) : (
+              <>
+                <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                Apply
+              </>
+            )}
+          </Button>
+        )}
 
         <Button
           variant="outline"

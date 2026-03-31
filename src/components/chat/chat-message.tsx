@@ -22,6 +22,7 @@ import { SaveSearchConfirmation } from "./save-search-confirmation";
 import { SaveJobConfirmation } from "./save-job-confirmation";
 import { JobImportCard } from "./job-import-card";
 import { DiscoveredJobsCard } from "./discovered-jobs-card";
+import { ApplicationStartedCard } from "./application-started-card";
 import type {
   SearchJobsResult,
   ApplicationStatusResult,
@@ -41,6 +42,7 @@ import type {
   SaveJobToTrackerResult,
   JobImportResult,
   DiscoveredJobsResult,
+  StartApplicationResult,
 } from "@/lib/chat/types";
 
 const TOOL_LOADING_LABELS: Record<string, string> = {
@@ -62,6 +64,7 @@ const TOOL_LOADING_LABELS: Record<string, string> = {
   saveJobToTracker: "Saving job to tracker...",
   importJobScreenshot: "Importing jobs from screenshot...",
   getDiscoveredJobs: "Checking your job leads...",
+  startApplication: "Tracking application…",
 };
 
 interface ChatMessageProps {
@@ -127,6 +130,8 @@ function ToolResult({
       return <JobImportCard data={result as JobImportResult} />;
     case "getDiscoveredJobs":
       return <DiscoveredJobsCard data={result as DiscoveredJobsResult} />;
+    case "startApplication":
+      return <ApplicationStartedCard data={result as StartApplicationResult} />;
     default:
       return null;
   }

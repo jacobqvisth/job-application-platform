@@ -1,6 +1,7 @@
 "use client";
 
-import { ExternalLink, Check } from "lucide-react";
+import { useState } from "react";
+import { Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { DiscoveredJobsResult } from "@/lib/chat/types";
 
@@ -32,12 +33,40 @@ interface Props {
 }
 
 export function DiscoveredJobsCard({ data }: Props) {
+  const [applyingIds, setApplyingIds] = useState<Set<string>>(new Set());
+  const [appliedIds, setAppliedIds] = useState<Set<string>>(
+    new Set(data.jobs.filter((j) => j.hasApplied).map((j) => j.id))
+  );
+
   if (data.errorMessage) {
     return (
       <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
         {data.errorMessage}
       </div>
     );
+  }
+
+  async function handleApply(job: DiscoveredJobsResult["jobs"][0]) {
+    setApplyingIds((prev) => new Set(prev).add(job.id));
+    try {
+      const res = await fetch("/api/jobs/start-application", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobListingId: job.id }),
+      });
+      if (!res.ok) throw new Error("Failed");
+
+      window.open(job.url, "_blank", "noopener,noreferrer");
+      setAppliedIds((prev) => new Set(prev).add(job.id));
+    } catch {
+      // silently fail — card is in chat context
+    } finally {
+      setApplyingIds((prev) => {
+        const s = new Set(prev);
+        s.delete(job.id);
+        return s;
+      });
+    }
   }
 
   const sourcesWithCount = Object.entries(data.sourceBreakdown).filter(([, count]) => count > 0);
@@ -105,23 +134,20 @@ export function DiscoveredJobsCard({ data }: Props) {
                 )}
               </div>
 
-              {/* Right: applied badge or link */}
+              {/* Right: applied badge or apply button */}
               <div className="shrink-0">
-                {job.hasApplied ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-green-100 text-green-700 border border-green-200 px-2 py-0.5 text-xs font-medium">
-                    <Check className="h-2.5 w-2.5" />
-                    Applied
+                {appliedIds.has(job.id) ? (
+                  <span className="text-xs text-green-600 font-medium flex items-center gap-1">
+                    <Check className="h-3 w-3" /> Applied
                   </span>
                 ) : (
-                  <a
-                    href={job.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center h-7 w-7 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                    title="Open job posting"
+                  <button
+                    onClick={() => handleApply(job)}
+                    disabled={applyingIds.has(job.id)}
+                    className="text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
                   >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                  </a>
+                    {applyingIds.has(job.id) ? "…" : "Apply"}
+                  </button>
                 )}
               </div>
             </div>

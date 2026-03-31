@@ -24,7 +24,9 @@ import type {
   SaveJobToTrackerResult,
   JobImportResult,
   DiscoveredJobsResult,
+  StartApplicationResult,
 } from './types';
+import { markJobListingAsApplied } from '@/lib/jobs/dedup';
 import { searchAdzunaLive } from './adzuna-search';
 import { searchJobTechDev } from './jobtechdev-search';
 import { persistSearchResults } from '@/lib/data/job-listings';
@@ -1658,6 +1660,62 @@ export function getDiscoveredJobsTool(userId: string) {
       const appliedCount = all.filter((r) => r.has_applied).length;
 
       return { total: all.length, newCount, appliedCount, jobs, sourceBreakdown };
+    },
+  });
+}
+
+// ─── Tool 19: Start Application ───────────────────────────────────────────────
+
+export function startApplicationTool(userId: string) {
+  return tool({
+    description:
+      "Track a job application and open the ATS application form. Use when the user says 'apply to [job]', 'start an application for [role]', 'apply to [company]', or clicks apply on a discovered job. Requires the jobListingId from a previous getDiscoveredJobs result.",
+    inputSchema: zodSchema(
+      z.object({
+        jobListingId: z.string().describe('The ID of the job listing to apply to (from getDiscoveredJobs results)'),
+      })
+    ),
+    execute: async ({ jobListingId }): Promise<StartApplicationResult> => {
+      const supabase = await createClient();
+
+      const { data: listing, error: listingError } = await supabase
+        .from('job_listings')
+        .select('id, company, title, url, source, has_applied, application_id, description')
+        .eq('id', jobListingId)
+        .eq('user_id', userId)
+        .single();
+
+      if (listingError || !listing) {
+        return { success: false, applicationId: null, company: '', role: '', url: null, alreadyExisted: false, errorMessage: 'Job listing not found' };
+      }
+
+      if (listing.has_applied && listing.application_id) {
+        return { success: true, applicationId: listing.application_id, company: listing.company, role: listing.title, url: listing.url, alreadyExisted: true };
+      }
+
+      const { data: newApp, error: appError } = await supabase
+        .from('applications')
+        .insert({
+          user_id: userId,
+          company: listing.company,
+          role: listing.title,
+          url: listing.url,
+          status: 'applied',
+          applied_at: new Date().toISOString(),
+          job_description: listing.description ?? null,
+          notes: `Started from job lead · Source: ${listing.source}`,
+          job_listing_id: listing.id,
+        })
+        .select('id')
+        .single();
+
+      if (appError || !newApp) {
+        return { success: false, applicationId: null, company: listing.company, role: listing.title, url: listing.url, alreadyExisted: false, errorMessage: 'Failed to create application' };
+      }
+
+      await markJobListingAsApplied(supabase, listing.id, newApp.id);
+
+      return { success: true, applicationId: newApp.id, company: listing.company, role: listing.title, url: listing.url, alreadyExisted: false };
     },
   });
 }

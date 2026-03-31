@@ -272,6 +272,18 @@ export interface JobImportResult {
   errorMessage?: string;
 }
 
+// ─── Phase E1: Start Application ──────────────────────────────────────────────
+
+export interface StartApplicationResult {
+  success: boolean;
+  applicationId: string | null;
+  company: string;
+  role: string;
+  url: string | null;
+  alreadyExisted: boolean;
+  errorMessage?: string;
+}
+
 // ─── Phase D3: Discovered Jobs ─────────────────────────────────────────────
 
 export interface DiscoveredJobsResult {
