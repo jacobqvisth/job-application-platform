@@ -1,5 +1,5 @@
 import { getStoredAuth, setStoredAuth, clearStoredAuth, getValidAccessToken } from './lib/storage.js';
-import { fetchProfile, saveJob, fetchFieldMappings, saveFieldMapping } from './lib/api.js';
+import { fetchProfile, saveJob, fetchFieldMappings, saveFieldMapping, fetchApplicationsByCompany, updateApplicationStatus } from './lib/api.js';
 
 // Message handler — all extension communication goes through here
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -43,6 +43,12 @@ async function handleMessage(message) {
 
     case 'SAVE_FIELD_MAPPING':
       return await saveFieldMapping(message.mapping);
+
+    case 'GET_APPLICATIONS':
+      return { success: true, applications: await fetchApplicationsByCompany(message.company) };
+
+    case 'UPDATE_APPLICATION_STATUS':
+      return await updateApplicationStatus(message.id, message.status);
 
     case 'OPEN_TAB':
       chrome.tabs.create({ url: message.url });

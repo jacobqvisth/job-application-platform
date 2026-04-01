@@ -48,3 +48,17 @@ export async function saveFieldMapping(mapping) {
   });
   return res.json();
 }
+
+export async function fetchApplicationsByCompany(company) {
+  const res = await authFetch(`/api/extension/applications?company=${encodeURIComponent(company)}`);
+  const data = await res.json();
+  return data.applications || [];
+}
+
+export async function updateApplicationStatus(id, status) {
+  const res = await authFetch('/api/extension/applications', {
+    method: 'PATCH',
+    body: JSON.stringify({ id, status }),
+  });
+  return res.json();
+}

@@ -224,6 +224,62 @@
         text-decoration: underline;
         cursor: pointer;
       }
+      .jac-pipeline { margin-bottom: 4px; }
+      .jac-pipeline-title {
+        font-size: 11px;
+        font-weight: 600;
+        color: #475569;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 6px;
+      }
+      .jac-app-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 0;
+        border-bottom: 1px solid #f1f5f9;
+      }
+      .jac-app-row:last-child { border-bottom: none; }
+      .jac-app-role {
+        flex: 1;
+        font-size: 12px;
+        color: #1e293b;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .jac-status-badge {
+        font-size: 10px;
+        font-weight: 600;
+        padding: 2px 6px;
+        border-radius: 10px;
+        white-space: nowrap;
+        cursor: pointer;
+        border: none;
+        background: none;
+      }
+      .jac-status-saved     { background: #f1f5f9; color: #475569; }
+      .jac-status-applied   { background: #dbeafe; color: #1d4ed8; }
+      .jac-status-interviewing { background: #fef3c7; color: #b45309; }
+      .jac-status-offered   { background: #dcfce7; color: #15803d; }
+      .jac-status-rejected  { background: #fee2e2; color: #dc2626; }
+      .jac-status-select {
+        font-size: 11px;
+        border: 1px solid #cbd5e1;
+        border-radius: 4px;
+        padding: 1px 4px;
+        color: #334155;
+        background: white;
+        cursor: pointer;
+      }
+      .jac-app-link {
+        font-size: 11px;
+        color: #1e40af;
+        text-decoration: none;
+        flex-shrink: 0;
+      }
+      .jac-app-link:hover { text-decoration: underline; }
     `;
   }
 
@@ -247,6 +303,10 @@
         ${loginNotice}
         ${fillBtn}
         <div class="jac-results" id="jac-results" style="display:none"></div>
+        <div class="jac-pipeline" id="jac-pipeline" style="display:none">
+          <div class="jac-pipeline-title">Applications at this company</div>
+          <div id="jac-pipeline-list"></div>
+        </div>
         <hr class="jac-divider">
         <button class="jac-btn jac-btn-secondary" id="jac-capture-btn">
           📋 Open Draft Wizard
@@ -294,6 +354,64 @@
     closeBtn.addEventListener('click', () => {
       document.getElementById('jac-ext-root').style.display = 'none';
     });
+
+    // ─── Pipeline: load applications at this company ────────────────────────
+    const pipelineEl = shadow.getElementById('jac-pipeline');
+    const pipelineListEl = shadow.getElementById('jac-pipeline-list');
+
+    const STATUS_LABELS = {
+      saved: 'Saved',
+      applied: 'Applied',
+      interviewing: 'Interviewing',
+      offered: 'Offered',
+      rejected: 'Rejected',
+    };
+
+    const ALL_STATUSES = ['saved', 'applied', 'interviewing', 'offered', 'rejected'];
+
+    function renderPipeline(applications) {
+      if (!applications || applications.length === 0) return;
+
+      pipelineListEl.innerHTML = applications.map((app) => {
+        const opts = ALL_STATUSES.map(
+          (s) => `<option value="${s}"${s === app.status ? ' selected' : ''}>${STATUS_LABELS[s]}</option>`
+        ).join('');
+        return `
+          <div class="jac-app-row" data-app-id="${app.id}">
+            <span class="jac-app-role" title="${app.role}">${app.role}</span>
+            <select class="jac-status-select" data-app-id="${app.id}">${opts}</select>
+            <a class="jac-app-link" href="https://job-application-platform-lake.vercel.app/dashboard/applications" target="_blank">View →</a>
+          </div>
+        `;
+      }).join('');
+
+      pipelineListEl.querySelectorAll('.jac-status-select').forEach((sel) => {
+        sel.addEventListener('change', (e) => {
+          const appId = e.target.dataset.appId;
+          const newStatus = e.target.value;
+          chrome.runtime.sendMessage(
+            { type: 'UPDATE_APPLICATION_STATUS', id: appId, status: newStatus },
+            (resp) => {
+              if (!resp?.success) {
+                e.target.value = applications.find((a) => a.id === appId)?.status || newStatus;
+              }
+            }
+          );
+        });
+      });
+
+      pipelineEl.style.display = 'block';
+    }
+
+    (function loadPipeline() {
+      const { company } = getJobInfo();
+      if (!company) return;
+      chrome.runtime.sendMessage({ type: 'GET_APPLICATIONS', company }, (resp) => {
+        if (resp?.success && resp.applications?.length > 0) {
+          renderPipeline(resp.applications);
+        }
+      });
+    })();
 
     if (fillBtn) {
       fillBtn.addEventListener('click', async () => {

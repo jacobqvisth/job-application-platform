@@ -397,3 +397,24 @@ None.
 
 ### Next step
 Deploy to production: `vercel --prod --yes`. Verify Sweden appears in dropdown and that a user with SE as primary market sees it pre-selected.
+
+---
+
+## Phase E3 — Extension Pipeline View
+
+**Date:** 2026-04-01
+
+### What was built
+- **New API route** `src/app/api/extension/applications/route.ts` — `GET /api/extension/applications?company=<name>` (ILIKE fuzzy match, returns up to 10 matching applications) and `PATCH /api/extension/applications` (update status by id, with `user_id` guard). Full CORS headers for extension use.
+- **`extension/lib/api.js`** — added `fetchApplicationsByCompany(company)` and `updateApplicationStatus(id, status)` functions using existing `authFetch` wrapper.
+- **`extension/background.js`** — added `GET_APPLICATIONS` and `UPDATE_APPLICATION_STATUS` message handlers wired to the two new api.js functions.
+- **5 content scripts updated** (`content.js`, `content-teamtailor.js`, `content-varbi.js`, `content-jobylon.js`, `content-reachmee.js`) — each got pipeline CSS classes, a `jac-pipeline` HTML section (hidden by default), and a `loadPipeline()` IIFE that fires on sidebar init to show tracked applications at the current company with an inline status dropdown.
+
+### Migration applied
+None — phase reads/updates existing `applications` table only.
+
+### Test result
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 warnings. Build pre-render failure is pre-existing env var issue (confirmed by stash test), unrelated to these changes.
+
+### Next step
+Deploy to production: `vercel --prod --yes`. Then reload the extension and visit a job page for a tracked company to verify the pipeline section appears automatically.
