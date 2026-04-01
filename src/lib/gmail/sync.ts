@@ -9,6 +9,7 @@ interface ParsedEmail {
   to_address: string;
   subject: string;
   body_preview: string | null;
+  body_text: string | null;    // Full plain text, not truncated
   body_html: string | null;
   received_at: string;
   direction: "inbound" | "outbound";
@@ -91,6 +92,7 @@ export function parseGmailMessage(
     to_address: to,
     subject: subject || "(no subject)",
     body_preview: preview,
+    body_text: bodyText,
     body_html: html,
     received_at: date
       ? new Date(date).toISOString()

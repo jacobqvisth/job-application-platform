@@ -19,6 +19,7 @@ import {
   UploadCloud,
   MessageCircle,
   MessageSquare,
+  Target,
 } from "lucide-react";
 
 const NAV_SECTIONS = [
@@ -28,6 +29,7 @@ const NAV_SECTIONS = [
       { href: "/dashboard/chat", label: "Chat", icon: MessageSquare },
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/dashboard/applications", label: "Applications", icon: Briefcase },
+      { href: "/dashboard/job-leads", label: "Job Leads", icon: Target },
       { href: "/dashboard/review", label: "Weekly Review", icon: BarChart3 },
     ],
   },

@@ -9,6 +9,7 @@ const VALID_CLASSIFICATIONS: EmailClassification[] = [
   "followup",
   "offer",
   "general",
+  "job_alert",
 ];
 
 const JOB_KEYWORDS = [
@@ -38,6 +39,20 @@ const JOB_KEYWORDS = [
   "next steps",
   "schedule",
   "shortlisted",
+  "linkedin jobs",
+  "indeed",
+  "job alert",
+  "new jobs",
+  "jobs for you",
+  "jobs matching",
+  "recommended jobs",
+  "job opportunities",
+  "matching your profile",
+  "jobs you might",
+  "based on your profile",
+  "weekly job",
+  "daily job",
+  "job digest",
 ];
 
 function isJobRelatedEmail(subject: string, fromAddress: string): boolean {
@@ -83,12 +98,13 @@ export async function classifyEmails(userId: string): Promise<number> {
         messages: [
           {
             role: "user",
-            content: `Classify this email related to a job application. Categories:
+            content: `Classify this email related to job searching. Categories:
 - rejection: The company is declining the application
 - interview_invite: Invitation to interview (phone screen, video, onsite)
 - followup: Follow-up or status update on the application
 - offer: Job offer or offer-related communication
-- general: Job-related but doesn't fit above categories (newsletters, job alerts, etc.)
+- job_alert: Job listing digest, job alert, or email containing job opportunities to review (e.g., LinkedIn "jobs for you", Indeed alerts, recruiter job suggestions)
+- general: Job-related but doesn't fit above categories
 
 Email subject: ${email.subject}
 From: ${email.from_address}
@@ -115,7 +131,8 @@ Respond with ONLY the category name, nothing else.`,
       classified++;
 
       // Second pass: extract job data for non-general emails and link to job_listings
-      if (finalClassification !== "general") {
+      // Skip job_alert — those contain multiple jobs and need dedicated batch extraction (Phase JL1b)
+      if (finalClassification !== "general" && finalClassification !== "job_alert") {
         try {
           const extractionResponse = await anthropic.messages.create({
             model: "claude-haiku-4-5-20251001",

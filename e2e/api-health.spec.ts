@@ -93,4 +93,23 @@ test.describe('API Health Checks', () => {
     const response = await request.get('/api/jobs/search?q=engineer&market=SE');
     expect(response.status()).toBe(401);
   });
+
+  test('email extract-jobs endpoint requires auth', async ({ request }) => {
+    const response = await request.post('/api/emails/extract-jobs', {
+      data: { emailId: '00000000-0000-0000-0000-000000000000' },
+    });
+    expect(response.status()).toBe(401);
+  });
+
+  test('email reclassify endpoint requires auth', async ({ request }) => {
+    const response = await request.post('/api/emails/reclassify', {
+      data: { emailId: '00000000-0000-0000-0000-000000000000', classification: 'general' },
+    });
+    expect(response.status()).toBe(401);
+  });
+
+  test('job-email-sources endpoint requires auth', async ({ request }) => {
+    const response = await request.get('/api/job-email-sources');
+    expect(response.status()).toBe(401);
+  });
 });

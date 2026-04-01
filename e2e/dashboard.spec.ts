@@ -30,6 +30,7 @@ test.describe('Dashboard — Authenticated', () => {
 
     const navLinks = [
       { text: 'Applications', url: '/dashboard/applications' },
+      { text: 'Job Leads', url: '/dashboard/job-leads' },
       { text: 'Resumes', url: '/dashboard/resumes' },
       { text: 'Profile', url: '/dashboard/profile' },
       { text: 'Emails', url: '/dashboard/emails' },
@@ -52,6 +53,7 @@ test.describe('All Dashboard Pages — Error Check', () => {
   const pages = [
     { name: 'Dashboard', path: '/dashboard' },
     { name: 'Applications', path: '/dashboard/applications' },
+    { name: 'Job Leads', path: '/dashboard/job-leads' },
     { name: 'Resumes', path: '/dashboard/resumes' },
     { name: 'Profile', path: '/dashboard/profile' },
     { name: 'Emails', path: '/dashboard/emails' },

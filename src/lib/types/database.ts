@@ -96,7 +96,8 @@ export type EmailClassification =
   | "followup"
   | "offer"
   | "general"
-  | "unclassified";
+  | "unclassified"
+  | "job_alert";
 
 export type EmailDirection = "inbound" | "outbound";
 
@@ -124,6 +125,7 @@ export interface Email {
   subject: string;
   body_preview: string | null;
   body_html: string | null;
+  body_text: string | null;  // Full plain text body (not truncated)
   received_at: string;
   direction: EmailDirection;
   classification: EmailClassification | null;
@@ -435,6 +437,28 @@ export interface JobListing {
   // Phase E2: AI scoring
   match_reason: string | null;
   ai_scored_at: string | null;
+  // Phase JL1a: Job Leads Pipeline
+  lead_status: 'pending' | 'approved' | 'rejected' | null;
+  source_email_id: string | null;
+  auto_approved: boolean;
+}
+
+export type LeadStatus = 'pending' | 'approved' | 'rejected';
+
+export interface JobEmailSource {
+  id: string;
+  user_id: string;
+  sender_email: string;
+  sender_domain: string;
+  display_name: string | null;
+  subject_pattern: string | null;
+  is_auto_extract: boolean;
+  is_trusted: boolean;
+  total_extracted: number;
+  total_approved: number;
+  total_rejected: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface JobListingSource {

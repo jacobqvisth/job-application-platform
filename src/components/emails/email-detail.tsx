@@ -16,6 +16,8 @@ import {
   Calendar,
   Link2,
   Reply,
+  Sparkles,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import DOMPurify from "dompurify";
@@ -35,6 +37,7 @@ interface EmailDetailProps {
 export function EmailDetail({ email, open, onOpenChange }: EmailDetailProps) {
   const [isPending, startTransition] = useTransition();
   const [showReply, setShowReply] = useState(false);
+  const [extracting, setExtracting] = useState(false);
   const [applications, setApplications] = useState<
     Pick<Application, "id" | "company" | "role">[]
   >([]);
@@ -63,6 +66,48 @@ export function EmailDetail({ email, open, onOpenChange }: EmailDetailProps) {
   }, [open, email?.application_id]);
 
   if (!email) return null;
+
+  async function handleExtractFromDetail() {
+    if (!email) return;
+    setExtracting(true);
+    try {
+      const res = await fetch("/api/emails/extract-jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emailId: email.id }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        toast.error(data.error || "Extraction failed");
+        return;
+      }
+
+      if (data.alreadyExtracted) {
+        toast.info(`${data.extracted.length} jobs already extracted from this email`, {
+          action: {
+            label: "View in Job Leads",
+            onClick: () => { window.location.href = "/dashboard/job-leads"; },
+          },
+        });
+        return;
+      }
+
+      toast.success(
+        `Extracted ${data.newCount} new job${data.newCount !== 1 ? "s" : ""}${data.duplicateCount > 0 ? ` (${data.duplicateCount} already known)` : ""}`,
+        {
+          action: {
+            label: "View in Job Leads",
+            onClick: () => { window.location.href = "/dashboard/job-leads"; },
+          },
+        }
+      );
+    } catch {
+      toast.error("Failed to extract jobs");
+    } finally {
+      setExtracting(false);
+    }
+  }
 
   function handleLink(applicationId: string) {
     startTransition(async () => {
@@ -136,6 +181,21 @@ export function EmailDetail({ email, open, onOpenChange }: EmailDetailProps) {
               <Badge variant="secondary" className="capitalize">
                 {email.classification.replace("_", " ")}
               </Badge>
+            )}
+            {email.classification === "job_alert" && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExtractFromDetail}
+                disabled={extracting}
+              >
+                {extracting ? (
+                  <Loader2 className="mr-1 size-4 animate-spin" />
+                ) : (
+                  <Sparkles className="mr-1 size-4" />
+                )}
+                Extract Jobs
+              </Button>
             )}
             {email.applications ? (
               <Badge variant="outline">
