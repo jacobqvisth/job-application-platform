@@ -68,9 +68,10 @@ interface NavRailProps {
   email: string;
   fullName: string | null;
   avatarUrl: string | null;
+  pendingLeadsCount: number;
 }
 
-export function NavRail({ email, fullName, avatarUrl }: NavRailProps) {
+export function NavRail({ email, fullName, avatarUrl, pendingLeadsCount }: NavRailProps) {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
@@ -110,6 +111,9 @@ export function NavRail({ email, fullName, avatarUrl }: NavRailProps) {
         <nav className="flex flex-col items-center gap-1 py-3 flex-1 overflow-y-auto">
           {PRIMARY_NAV.map((item) => {
             const active = isActive(item.href);
+            const badge = item.href === '/dashboard/job-leads' && pendingLeadsCount > 0
+              ? pendingLeadsCount
+              : null;
             return (
               <div key={item.href} className="relative group w-full flex justify-center">
                 <Link
@@ -127,6 +131,11 @@ export function NavRail({ email, fullName, avatarUrl }: NavRailProps) {
                     <span className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 w-1 h-5 rounded-r-full bg-[oklch(0.44_0.19_265)]" />
                   )}
                   <item.icon className={cn("h-5 w-5", active && "stroke-[2.25]")} />
+                  {badge !== null && (
+                    <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[oklch(0.44_0.19_265)] text-white text-[10px] font-medium px-1 leading-none">
+                      {badge > 99 ? '99+' : badge}
+                    </span>
+                  )}
                 </Link>
                 {/* Hover tooltip */}
                 <span className="absolute left-full ml-2 whitespace-nowrap bg-popover border border-border text-popover-foreground rounded-md px-2 py-1 text-xs opacity-0 group-hover:opacity-100 pointer-events-none z-50 transition-opacity shadow-sm">

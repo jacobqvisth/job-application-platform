@@ -210,3 +210,28 @@ export async function deleteJobEmailSource(sourceId: string) {
   revalidatePath("/dashboard/job-leads");
   return { success: true };
 }
+
+export async function updateSourceDisplayName(
+  sourceId: string,
+  displayName: string
+): Promise<{ error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const trimmed = displayName.trim();
+  if (!trimmed) return { error: "Display name cannot be empty" };
+  if (trimmed.length > 100) return { error: "Display name must be 100 characters or less" };
+
+  const { error } = await supabase
+    .from("job_email_sources")
+    .update({ display_name: trimmed, updated_at: new Date().toISOString() })
+    .eq("id", sourceId)
+    .eq("user_id", user.id);
+
+  if (error) return { error: error.message };
+  revalidatePath("/dashboard/job-leads");
+  return {};
+}

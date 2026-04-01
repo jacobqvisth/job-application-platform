@@ -1,70 +1,5 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@/lib/supabase/server';
-import { findOrCreateJobListing } from '@/lib/jobs/dedup';
-import { scoreUnscoredJobsForUser } from '@/lib/jobs/ai-score';
-
-const anthropic = new Anthropic();
-
-interface ExtractedJob {
-  title: string;
-  company: string;
-  location: string | null;
-  url: string | null;
-  description: string | null;
-  salary_min: number | null;
-  salary_max: number | null;
-  remote_type: 'remote' | 'hybrid' | 'onsite' | null;
-}
-
-async function callExtractionPrompt(
-  emailBody: string,
-  subject: string,
-  fromAddress: string
-): Promise<ExtractedJob[]> {
-  const extractionPrompt = `You are extracting individual job listings from an email digest or job alert.
-
-Extract EVERY distinct job opportunity mentioned in this email. For each job, extract:
-- title: The job title/role (required)
-- company: The hiring company name (required)
-- location: City, country, or "Remote" (if mentioned, otherwise null)
-- url: The direct link to view or apply to the job (if present in the HTML, otherwise null)
-- description: A brief 1-2 sentence summary of the role (if available, otherwise null)
-- salary_min: Minimum salary as a number (if mentioned, otherwise null)
-- salary_max: Maximum salary as a number (if mentioned, otherwise null)
-- remote_type: "remote", "hybrid", "onsite", or null (if not clear)
-
-Rules:
-- Only extract REAL job listings, not ads, promotional content, or "tips for your search"
-- If the email is not a job digest/alert or contains no job listings, return an empty array
-- Preserve original URLs exactly — do not modify, shorten, or reconstruct them
-- If a URL is wrapped in a tracking redirect (common in email), preserve the full tracking URL
-- If company name is unclear, extract the best guess from context
-- Each job should be a separate object even if multiple roles at the same company
-- salary_min and salary_max should be annual amounts as numbers (e.g., 600000 for 600,000 SEK), or null
-
-Email subject: ${subject}
-From: ${fromAddress}
-
-Email body:
-${emailBody.slice(0, 50000)}
-
-Respond with ONLY a JSON array. No other text, no markdown formatting, no code blocks.`;
-
-  const response = await anthropic.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 4096,
-    messages: [{ role: 'user', content: extractionPrompt }],
-  });
-
-  const text = response.content[0].type === 'text' ? response.content[0].text : '';
-  // Strip markdown code blocks if present
-  const cleaned = text.replace(/^```json?\n?/i, '').replace(/\n?```$/i, '').trim();
-  // Extract JSON array
-  const match = cleaned.match(/\[[\s\S]*\]/);
-  if (!match) throw new Error('No JSON array in extraction response');
-  const jobs = JSON.parse(match[0]);
-  return jobs;
-}
+import { extractJobsFromEmail } from '@/lib/jobs/extract-from-email';
 
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -83,15 +18,15 @@ export async function POST(req: Request) {
     return Response.json({ error: 'emailId is required' }, { status: 400 });
   }
 
-  // Fetch email, verify ownership
-  const { data: email, error: emailError } = await supabase
+  // Verify email ownership
+  const { data: emailCheck, error: emailError } = await supabase
     .from('emails')
-    .select('id, user_id, subject, from_address, body_html, body_text')
+    .select('id')
     .eq('id', emailId)
     .eq('user_id', user.id)
     .maybeSingle();
 
-  if (emailError || !email) {
+  if (emailError || !emailCheck) {
     return Response.json({ error: 'Email not found' }, { status: 404 });
   }
 
@@ -126,107 +61,45 @@ export async function POST(req: Request) {
     });
   }
 
-  // Get email body — prefer HTML (has links), fall back to plain text
-  const emailBody: string = email.body_html || email.body_text || '';
-  if (!emailBody) {
-    return Response.json({ error: 'Email has no body content to extract from' }, { status: 400 });
-  }
-
-  // Call Claude Sonnet — retry once on JSON parse failure
-  let jobs: ExtractedJob[] = [];
+  // Delegate core extraction to shared utility
+  let result;
   try {
-    jobs = await callExtractionPrompt(emailBody, email.subject, email.from_address);
-  } catch {
-    // Retry once
-    try {
-      jobs = await callExtractionPrompt(emailBody, email.subject, email.from_address);
-    } catch (retryErr) {
-      const message = retryErr instanceof Error ? retryErr.message : 'Extraction failed';
-      return Response.json({ error: `Extraction failed: ${message}` }, { status: 500 });
-    }
+    result = await extractJobsFromEmail(supabase, emailId, user.id);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Extraction failed';
+    return Response.json({ error: `Extraction failed: ${message}` }, { status: 500 });
   }
 
-  // Filter out jobs missing required fields
-  const validJobs = jobs.filter(
-    (j) => j.title && typeof j.title === 'string' && j.company && typeof j.company === 'string'
-  );
+  // Fetch extracted listings for the response
+  const { data: listings } = result.extractedIds.length > 0
+    ? await supabase
+        .from('job_listings')
+        .select('id, title, company, location, url, has_applied, lead_status')
+        .in('id', result.extractedIds)
+    : { data: [] };
 
-  // Process each extracted job
-  const extracted: Array<{
-    jobListingId: string;
+  const extracted = (listings ?? []).map((l: {
+    id: string;
     title: string;
     company: string;
     location: string | null;
     url: string | null;
-    isNew: boolean;
-    alreadyApplied: boolean;
-  }> = [];
-  let newCount = 0;
-  let duplicateCount = 0;
-
-  for (const job of validJobs) {
-    try {
-      const result = await findOrCreateJobListing(supabase, {
-        userId: user.id,
-        title: job.title,
-        company: job.company,
-        url: job.url || '',
-        source: 'email',
-        description: job.description || undefined,
-        location: job.location || undefined,
-        remoteType: job.remote_type || undefined,
-        salaryMin: job.salary_min || undefined,
-        salaryMax: job.salary_max || undefined,
-      });
-
-      if (result.isNew) {
-        // New listing: set lead_status = 'pending' and source_email_id
-        await supabase
-          .from('job_listings')
-          .update({ lead_status: 'pending', source_email_id: emailId })
-          .eq('id', result.jobListingId);
-        newCount++;
-      } else {
-        // Duplicate: fetch current lead_status, update source_email_id if not set
-        const { data: existing } = await supabase
-          .from('job_listings')
-          .select('lead_status')
-          .eq('id', result.jobListingId)
-          .single();
-
-        const existingLeadStatus = existing?.lead_status ?? null;
-        await supabase
-          .from('job_listings')
-          .update({
-            source_email_id: emailId,
-            ...(existingLeadStatus === null ? { lead_status: 'pending' } : {}),
-          })
-          .eq('id', result.jobListingId)
-          .is('source_email_id', null);
-        duplicateCount++;
-      }
-
-      extracted.push({
-        jobListingId: result.jobListingId,
-        title: job.title,
-        company: job.company,
-        location: job.location,
-        url: job.url,
-        isNew: result.isNew,
-        alreadyApplied: result.alreadyApplied,
-      });
-    } catch (err) {
-      console.error(`Failed to process job "${job.title}" at "${job.company}":`, err);
-    }
-  }
-
-  // Fire-and-forget AI scoring on newly extracted listings
-  scoreUnscoredJobsForUser(user.id, supabase).catch(console.error);
+    has_applied: boolean;
+    lead_status: string | null;
+  }) => ({
+    jobListingId: l.id,
+    title: l.title,
+    company: l.company,
+    location: l.location,
+    url: l.url,
+    isNew: true,
+    alreadyApplied: l.has_applied,
+  }));
 
   return Response.json({
     extracted,
-    newCount,
-    duplicateCount,
+    newCount: result.newCount,
+    duplicateCount: result.duplicateCount,
     alreadyExtracted: false,
   });
 }

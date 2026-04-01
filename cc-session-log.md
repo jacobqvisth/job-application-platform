@@ -1,5 +1,58 @@
 # Claude Code Session Log
 
+## Phase JL1 — Job Leads Pipeline (Foundation)
+
+**Date:** 2026-04-01
+
+### What was built
+
+**Database migration** `supabase/migrations/019_job_leads_pipeline.sql`:
+- Added `body_text` column to `emails` table (full plain-text body, was previously truncated at 300 chars)
+- Added `lead_status` (`pending`/`approved`/`rejected`/null), `source_email_id`, `auto_approved` columns to `job_listings`
+- Created `job_email_sources` table with RLS (learned sender patterns for auto-extraction)
+- Updated `emails.classification` check constraint to include new `job_alert` category
+
+**New API routes:**
+- `POST /api/emails/extract-jobs` — Claude Sonnet extraction from email body → `findOrCreateJobListing()` dedup per job → set `lead_status='pending'`, fire AI scoring
+- `POST /api/emails/reclassify` — update email classification (validates against all 7 categories)
+- `GET|POST /api/job-email-sources` — list/upsert remembered sender patterns
+
+**New pages and components:**
+- `src/app/(protected)/dashboard/job-leads/page.tsx` — server component, fetches leads + stats + sources in parallel
+- `src/app/(protected)/dashboard/job-leads/actions.ts` — 7 server actions: approve, reject, undo-reject, bulk approve, bulk reject, toggle auto-extract, delete source
+- `src/components/job-leads/job-leads-client.tsx` — full interactive table with filter tabs, search, checkboxes, status badges, match score colors, bulk selection bar, learned sources section
+
+**Modified existing files:**
+- `src/lib/types/database.ts` — added `job_alert` to `EmailClassification`, `body_text` to `Email`, new fields on `JobListing`, new `LeadStatus` type, `JobEmailSource` interface
+- `src/lib/gmail/classify.ts` — added `job_alert` to valid classifications + 14 job-alert keywords; second-pass extraction skips `job_alert` emails
+- `src/lib/gmail/sync.ts` — now stores full `body_text` (was discarded after classification)
+- `src/lib/gmail/utils.ts` — new `parseSenderInfo()` helper
+- `src/components/emails/email-list.tsx` — job_alert badge, filter tab, Extract button per row, reclassify dropdown on every row, remember-sender inline prompt after extraction
+- `src/components/emails/email-detail.tsx` — Extract Jobs button in classification section for job_alert emails
+- `src/components/layout/nav-rail.tsx` — added Job Leads to PRIMARY_NAV (was added to nav-links.tsx by mistake — nav-rail is the active sidebar component)
+
+**New data layer:**
+- `src/lib/data/job-leads.ts` — `getJobLeads()`, `getJobLeadStats()`, `getJobEmailSources()` query functions
+
+**New E2E tests:**
+- `e2e/job-leads.spec.ts` — 13 tests: page loads, filter tabs, search, navigation, 6 API auth checks
+
+### Migration applied
+`019_job_leads_pipeline.sql` — applied via Supabase MCP directly to production (`gvfixrxpwmdslsiftmtv`).
+
+### Test result
+**106/106 E2E tests passing** against production.
+
+Note: JL1 was built by CC across 5 phases (JL1a–JL1e) in isolated git worktrees, each starting from the same base commit. Cowork merged all worktrees into main manually, then caught and fixed that Job Leads was added to `nav-links.tsx` (old unused sidebar) instead of `nav-rail.tsx` (active sidebar).
+
+### Next step
+**JL2 — Auto-extraction at sync time:**
+- Auto-extract from `job_alert` emails during Gmail sync (if `auto_extract` is enabled for that sender)
+- Sidebar badge showing count of pending leads
+- Improve source management UI (edit pattern name, view extraction history)
+
+---
+
 ## Phase E3 — Extension Pipeline View
 
 **Date:** 2026-04-01
@@ -489,3 +542,31 @@ None.
 Deploy to production: `vercel --prod --yes`. Verify Sweden appears in dropdown and that a user with SE as primary market sees it pre-selected.
 
 ---
+
+## Session: Phase JL2 — Auto-Extraction at Sync Time (2026-04-01)
+
+### What was built
+- **Shared extraction utility** (`src/lib/jobs/extract-from-email.ts`) — extracted Claude Sonnet extraction logic from the API route into a reusable `extractJobsFromEmail(supabase, emailId, userId)` function with idempotency check, body fallback, retry, dedup, scoring fire-and-forget, and `ExtractionResult` return type.
+- **Auto-extract hook in classify.ts** — after classifying an email as `job_alert`, checks `job_email_sources` for a matching `is_auto_extract=true` record; if found, calls `extractJobsFromEmail` and bumps `total_extracted`; failures are caught and logged, never blocking classification.
+- **Pending leads badge in NavRail** — layout.tsx fetches `count` of `job_listings` with `lead_status='pending'` for the current user; passes `pendingLeadsCount` to `NavRail`; badge rendered as small circle on the Job Leads icon (hidden at 0, shows `99+` above 99).
+- **Source management improvements** — `LearnedSources` component in `job-leads-client.tsx` now shows approval rate (if ≥5 decisions), low-approval warning badge (⚠ <50% at ≥10 decisions), inline pencil-edit for display name (blur/Enter saves, Escape cancels via new `updateSourceDisplayName` server action), and sorts sources by approval rate descending.
+- **E2E tests** — added authenticated 404 smoke test for refactored extract-jobs route, and a sources-section render safety test in `e2e/job-leads.spec.ts`.
+
+### Files changed
+- `src/lib/jobs/extract-from-email.ts` — **created**
+- `src/app/api/emails/extract-jobs/route.ts` — refactored to delegate to shared utility
+- `src/lib/gmail/classify.ts` — added auto-extract hook after `job_alert` classification
+- `src/app/(protected)/layout.tsx` — fetch pending leads count, pass to NavRail
+- `src/components/layout/nav-rail.tsx` — added `pendingLeadsCount` prop, badge on Job Leads icon
+- `src/app/(protected)/dashboard/job-leads/actions.ts` — added `updateSourceDisplayName` action
+- `src/components/job-leads/job-leads-client.tsx` — new `LearnedSources` component with approval rate, warning, inline edit, sorted display
+- `e2e/job-leads.spec.ts` — added 2 new tests
+
+### Migration applied
+None — all fields (`total_approved`, `total_rejected`, `display_name`) already exist from migration 019.
+
+### Test result
+`npm run build` — 0 errors. `npx tsc --noEmit` — 0 errors. `npx eslint` on changed files — 0 errors.
+
+### Next step
+Deploy to production: `vercel --prod --yes`. Run `npm run test:e2e` against production to verify all 28+ tests pass (26 existing + 2 new).

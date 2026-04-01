@@ -1,6 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
 import { findOrCreateJobListing } from "@/lib/jobs/dedup";
+import { extractJobsFromEmail } from "@/lib/jobs/extract-from-email";
+import { parseSenderInfo } from "@/lib/gmail/utils";
 import type { EmailClassification } from "@/lib/types/database";
 
 const VALID_CLASSIFICATIONS: EmailClassification[] = [
@@ -130,8 +132,37 @@ Respond with ONLY the category name, nothing else.`,
 
       classified++;
 
+      // Auto-extract for remembered sources
+      // NOTE: if many job_alert emails are classified per cron run, each triggers a Sonnet API call.
+      // Acceptable at current volume; should be batched if volume grows significantly.
+      if (finalClassification === "job_alert") {
+        try {
+          const senderEmail = parseSenderInfo(email.from_address).email;
+
+          const { data: source } = await supabase
+            .from("job_email_sources")
+            .select("id, total_extracted")
+            .eq("user_id", userId)
+            .eq("sender_email", senderEmail)
+            .eq("is_auto_extract", true)
+            .maybeSingle();
+
+          if (source) {
+            const result = await extractJobsFromEmail(supabase, email.id, userId);
+
+            await supabase
+              .from("job_email_sources")
+              .update({ total_extracted: source.total_extracted + result.newCount + result.duplicateCount })
+              .eq("id", source.id);
+          }
+        } catch (err) {
+          // Never let auto-extract failure block classification
+          console.error(`Auto-extract failed for email ${email.id}:`, err);
+        }
+      }
+
       // Second pass: extract job data for non-general emails and link to job_listings
-      // Skip job_alert — those contain multiple jobs and need dedicated batch extraction (Phase JL1b)
+      // Skip job_alert — those contain multiple jobs and handled above
       if (finalClassification !== "general" && finalClassification !== "job_alert") {
         try {
           const extractionResponse = await anthropic.messages.create({

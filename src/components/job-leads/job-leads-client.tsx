@@ -17,6 +17,8 @@ import {
   ExternalLink,
   Trash2,
   Loader2,
+  Pencil,
+  AlertTriangle,
 } from "lucide-react";
 import type { JobListing, JobEmailSource, LeadStatus } from "@/lib/types/database";
 import type { JobLeadStats } from "@/lib/data/job-leads";
@@ -28,6 +30,7 @@ import {
   bulkRejectJobLeads,
   toggleAutoExtract,
   deleteJobEmailSource,
+  updateSourceDisplayName,
 } from "@/app/(protected)/dashboard/job-leads/actions";
 
 interface JobLeadsClientProps {
@@ -122,6 +125,136 @@ function RemoteTypeBadge({ type }: { type: string }) {
     <Badge variant="outline" className="text-[10px] px-1.5 py-0">
       Onsite
     </Badge>
+  );
+}
+
+function approvalRate(approved: number, rejected: number): number | null {
+  const total = approved + rejected;
+  if (total < 5) return null;
+  return Math.round((approved / total) * 100);
+}
+
+function sortedSources(sources: JobEmailSource[]): JobEmailSource[] {
+  return [...sources].sort((a, b) => {
+    const rateA = approvalRate(a.total_approved, a.total_rejected);
+    const rateB = approvalRate(b.total_approved, b.total_rejected);
+    // Sources with decisions come before those without
+    if (rateA !== null && rateB === null) return -1;
+    if (rateA === null && rateB !== null) return 1;
+    if (rateA !== null && rateB !== null) return rateB - rateA;
+    return 0;
+  });
+}
+
+function LearnedSources({
+  sources,
+  onToggleAutoExtract,
+  onDeleteSource,
+}: {
+  sources: JobEmailSource[];
+  onToggleAutoExtract: (id: string, enabled: boolean) => void;
+  onDeleteSource: (id: string) => void;
+}) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+
+  if (sources.length === 0) return null;
+
+  async function handleSaveName(sourceId: string) {
+    const result = await updateSourceDisplayName(sourceId, editValue);
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success("Display name updated");
+      setEditingId(null);
+      window.location.reload();
+    }
+  }
+
+  return (
+    <div className="mt-8">
+      <h2 className="mb-3 text-lg font-semibold">Learned Sources</h2>
+      <div className="divide-y rounded-lg border">
+        {sortedSources(sources).map((source) => {
+          const rate = approvalRate(source.total_approved, source.total_rejected);
+          const totalDecisions = source.total_approved + source.total_rejected;
+          const isLowPerformance = rate !== null && rate < 50 && totalDecisions >= 10;
+          const isEditing = editingId === source.id;
+
+          return (
+            <div
+              key={source.id}
+              className="flex items-center justify-between px-4 py-3 gap-3"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  {isEditing ? (
+                    <input
+                      autoFocus
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      onBlur={() => handleSaveName(source.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleSaveName(source.id);
+                        if (e.key === "Escape") setEditingId(null);
+                      }}
+                      className="text-sm font-medium border-b border-border bg-transparent focus:outline-none focus:border-primary w-48"
+                    />
+                  ) : (
+                    <>
+                      <span className="text-sm font-medium truncate">
+                        {source.display_name || source.sender_email}
+                      </span>
+                      <button
+                        onClick={() => {
+                          setEditingId(source.id);
+                          setEditValue(source.display_name || source.sender_email);
+                        }}
+                        className="shrink-0 text-muted-foreground hover:text-foreground"
+                        title="Edit display name"
+                      >
+                        <Pencil className="size-3" />
+                      </button>
+                    </>
+                  )}
+                  {isLowPerformance && (
+                    <span className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 shrink-0">
+                      <AlertTriangle className="size-3" />
+                      Low approval rate
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground truncate">{source.sender_email}</p>
+                <p className="text-xs text-muted-foreground">
+                  {source.total_extracted} extracted · {source.total_approved} approved ·{" "}
+                  {source.total_rejected} rejected
+                  {rate !== null ? ` · ${rate}% approval` : ""}
+                </p>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <label className="flex items-center gap-2 text-xs cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={source.is_auto_extract}
+                    onChange={() => onToggleAutoExtract(source.id, !source.is_auto_extract)}
+                    className="rounded"
+                  />
+                  Auto-extract
+                </label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onDeleteSource(source.id)}
+                  className="text-destructive hover:text-destructive"
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -580,53 +713,11 @@ export function JobLeadsClient({
       )}
 
       {/* Learned Sources */}
-      {sources.length > 0 && (
-        <div className="mt-8">
-          <h2 className="mb-3 text-lg font-semibold">Learned Sources</h2>
-          <div className="divide-y rounded-lg border">
-            {sources.map((source) => (
-              <div
-                key={source.id}
-                className="flex items-center justify-between px-4 py-3"
-              >
-                <div>
-                  <p className="text-sm font-medium">
-                    {source.display_name || source.sender_email}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {source.sender_email}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {source.total_extracted} extracted · {source.total_approved} approved ·{" "}
-                    {source.total_rejected} rejected
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-2 text-xs cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={source.is_auto_extract}
-                      onChange={() =>
-                        handleToggleAutoExtract(source.id, !source.is_auto_extract)
-                      }
-                      className="rounded"
-                    />
-                    Auto-extract
-                  </label>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDeleteSource(source.id)}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <LearnedSources
+        sources={sources}
+        onToggleAutoExtract={handleToggleAutoExtract}
+        onDeleteSource={handleDeleteSource}
+      />
     </div>
   );
 }

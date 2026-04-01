@@ -81,6 +81,15 @@ test.describe('Job Leads', () => {
       await expect(searchInput).toBeVisible();
     });
 
+    // JL2: auto-extract API smoke test (authenticated)
+    test('POST /api/emails/extract-jobs with unknown emailId returns 404 not 500', async ({ request }) => {
+      const response = await request.post('/api/emails/extract-jobs', {
+        data: { emailId: '00000000-0000-0000-0000-000000000001' },
+      });
+      // 404: email not found. Must not be 500 (regression check for refactored route).
+      expect(response.status()).toBe(404);
+    });
+
   });
 
   // ─── Navigation Tests ──────────────────────────────────────────────────
@@ -104,6 +113,21 @@ test.describe('Job Leads', () => {
       await jobLeadsLink.click();
       await page.waitForURL('**/dashboard/job-leads**', { timeout: 10_000 });
       expect(page.url()).toContain('/dashboard/job-leads');
+    });
+
+  });
+
+  // ─── JL2: Sources section ─────────────────────────────────────────────
+
+  test.describe('Sources section', () => {
+
+    test('job leads page renders without error (sources section present or absent)', async ({ page }) => {
+      await page.goto('/dashboard/job-leads');
+      await page.waitForLoadState('networkidle');
+
+      // Page must not show an application error regardless of whether sources exist
+      const body = await page.textContent('body');
+      expect(body).not.toContain('Application error');
     });
 
   });
