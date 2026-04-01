@@ -4,6 +4,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { findOrCreateJobListing } from '@/lib/jobs/dedup';
 import { scoreUnscoredJobsForUser } from '@/lib/jobs/ai-score';
+import { getPreferences, scoreJobAgainstPreferences } from '@/lib/jobs/preferences';
 
 const anthropic = new Anthropic();
 
@@ -74,10 +75,15 @@ export interface ExtractionResult {
   extractedIds: string[];
 }
 
+export interface ExtractionOptions {
+  isTrusted?: boolean; // if true, check preferences and auto-approve high-confidence leads
+}
+
 export async function extractJobsFromEmail(
   supabase: SupabaseClient,
   emailId: string,
-  userId: string
+  userId: string,
+  options: ExtractionOptions = {}
 ): Promise<ExtractionResult> {
   // Fetch the email, verify ownership
   const { data: email, error: emailError } = await supabase
@@ -178,6 +184,41 @@ export async function extractJobsFromEmail(
 
   // Fire-and-forget AI scoring on newly extracted listings
   scoreUnscoredJobsForUser(userId, supabase).catch(console.error);
+
+  // Auto-approve for trusted sources with learned preferences
+  if (options.isTrusted && extractedIds.length > 0) {
+    try {
+      const prefs = await getPreferences(supabase, userId);
+      // Only auto-approve if we have enough signal (10+ decisions)
+      if (prefs && prefs.decision_count >= 10) {
+        for (const jobId of extractedIds) {
+          const { data: job } = await supabase
+            .from('job_listings')
+            .select('id, title, company, location, remote_type, lead_status')
+            .eq('id', jobId)
+            .single();
+
+          if (job && job.lead_status === 'pending') {
+            const { score, reason } = scoreJobAgainstPreferences(job, prefs);
+            if (score >= 0.8) {
+              await supabase
+                .from('job_listings')
+                .update({
+                  lead_status: 'approved',
+                  auto_approved: true,
+                  auto_approve_reason: reason,
+                  is_saved: true,
+                })
+                .eq('id', jobId);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Auto-approve step failed:', err);
+      // Non-critical — extraction already succeeded
+    }
+  }
 
   return { newCount, duplicateCount, extractedIds };
 }

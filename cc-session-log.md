@@ -570,3 +570,41 @@ None — all fields (`total_approved`, `total_rejected`, `display_name`) already
 
 ### Next step
 Deploy to production: `vercel --prod --yes`. Run `npm run test:e2e` against production to verify all 28+ tests pass (26 existing + 2 new).
+
+---
+
+## Session: Phase JL3 — Approval Learning + Auto-Approve (2026-04-01)
+
+### What was built
+- **Preferences library** (`src/lib/jobs/preferences.ts`) — `analyzeAndSavePreferences()` fetches approved/rejected leads, calls Claude Sonnet to extract positive/negative signals + preferred companies/locations + score threshold, upserts to `job_lead_preferences`; `getPreferences()` loads saved prefs; `scoreJobAgainstPreferences()` pure function scoring 0–1 based on signal matching with clamp.
+- **Analyze preferences API** (`src/app/api/jobs/analyze-preferences/route.ts`) — `POST /api/jobs/analyze-preferences`: auth-guarded, calls `analyzeAndSavePreferences`, returns 400 for insufficient data (< 5 decisions), 500 for other errors.
+- **Auto-approve in extraction** (`src/lib/jobs/extract-from-email.ts`) — added `ExtractionOptions` interface with `isTrusted` flag; after extraction loop, if trusted + 10+ decisions + score ≥ 0.8: sets `lead_status='approved'`, `auto_approved=true`, `auto_approve_reason`, `is_saved=true`; wrapped in try/catch so failures never break extraction.
+- **classify.ts wired** — `select` on source query now includes `is_trusted`; passes `{ isTrusted: source.is_trusted }` to `extractJobsFromEmail`.
+- **`toggleTrustedSource` action** — new server action in `actions.ts`; validates ≥80% approval rate + ≥10 decisions before enabling; updates `is_trusted` on `job_email_sources`.
+- **UI: Trusted toggle** — `LearnedSources` in `job-leads-client.tsx` shows a "Trusted" checkbox per source; enabled only when rate ≥ 80% + 10+ decisions (disabled with tooltip otherwise).
+- **UI: Auto-approved badge** — `StatusBadge` now accepts `autoApproved` + `autoApproveReason`; approved leads show a blue "Auto ✓" badge with tooltip showing the reason.
+- **UI: My Preferences panel** — new `PreferencesPanel` component below Learned Sources; shows green/muted/blue/purple tag clouds for positive signals, negative signals, preferred companies, preferred locations; "Analyze My Preferences" / "Re-analyze" button with loading spinner; decision threshold progress note; empty + not-enough-data states.
+- **page.tsx** — added `getPreferences` call to `Promise.all`, passes `initialPreferences` to client.
+
+### Files changed
+- `supabase/migrations/020_job_lead_preferences.sql` — **created** (NOT applied — apply via Supabase MCP)
+- `src/lib/jobs/preferences.ts` — **created**
+- `src/app/api/jobs/analyze-preferences/route.ts` — **created**
+- `src/lib/jobs/extract-from-email.ts` — added `ExtractionOptions`, auto-approve block
+- `src/lib/gmail/classify.ts` — updated source select + pass `isTrusted`
+- `src/app/(protected)/dashboard/job-leads/actions.ts` — added `toggleTrustedSource`
+- `src/app/(protected)/dashboard/job-leads/page.tsx` — added preferences fetch
+- `src/lib/types/database.ts` — added `auto_approve_reason` to `JobListing`
+- `src/components/job-leads/job-leads-client.tsx` — trusted toggle, auto-badge, preferences panel
+- `e2e/job-leads.spec.ts` — added 3 new JL3 tests (preferences UI, 400 check, 401 unauth)
+
+### Migration applied
+`020_job_lead_preferences.sql` — file created, **not yet applied**. Apply via Supabase MCP before deploying.
+
+### Test result
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors (1 pre-existing warning in email-detail.tsx unrelated to this session). Build TypeScript step compiled successfully.
+
+### Next step
+1. Apply `020_job_lead_preferences.sql` via Supabase MCP
+2. Deploy to production: `vercel --prod --yes`
+3. Run `npm run test:e2e` against production to verify all tests pass

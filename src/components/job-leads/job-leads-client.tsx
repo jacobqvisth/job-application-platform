@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,8 +20,10 @@ import {
   Loader2,
   Pencil,
   AlertTriangle,
+  Zap,
 } from "lucide-react";
 import type { JobListing, JobEmailSource, LeadStatus } from "@/lib/types/database";
+import type { LeadPreferences } from "@/lib/jobs/preferences";
 import type { JobLeadStats } from "@/lib/data/job-leads";
 import {
   approveJobLead,
@@ -29,6 +32,7 @@ import {
   bulkApproveJobLeads,
   bulkRejectJobLeads,
   toggleAutoExtract,
+  toggleTrustedSource,
   deleteJobEmailSource,
   updateSourceDisplayName,
 } from "@/app/(protected)/dashboard/job-leads/actions";
@@ -37,6 +41,7 @@ interface JobLeadsClientProps {
   initialLeads: JobListing[];
   initialStats: JobLeadStats;
   sources: JobEmailSource[];
+  initialPreferences: LeadPreferences | null;
 }
 
 function timeAgo(dateStr: string): string {
@@ -81,7 +86,15 @@ function MatchBadge({ score, reason }: { score: number; reason: string | null })
   );
 }
 
-function StatusBadge({ status }: { status: LeadStatus }) {
+function StatusBadge({
+  status,
+  autoApproved,
+  autoApproveReason,
+}: {
+  status: LeadStatus;
+  autoApproved?: boolean;
+  autoApproveReason?: string | null;
+}) {
   if (status === "pending") {
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
@@ -92,9 +105,20 @@ function StatusBadge({ status }: { status: LeadStatus }) {
   }
   if (status === "approved") {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-400">
-        <Check className="size-3" />
-        Approved
+      <span className="inline-flex items-center gap-1">
+        <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-400">
+          <Check className="size-3" />
+          Approved
+        </span>
+        {autoApproved && (
+          <span
+            className="inline-flex items-center gap-0.5 rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+            title={autoApproveReason ?? "Auto-approved based on learned preferences"}
+          >
+            <Zap className="size-2.5" />
+            Auto
+          </span>
+        )}
       </span>
     );
   }
@@ -149,10 +173,12 @@ function sortedSources(sources: JobEmailSource[]): JobEmailSource[] {
 function LearnedSources({
   sources,
   onToggleAutoExtract,
+  onToggleTrusted,
   onDeleteSource,
 }: {
   sources: JobEmailSource[];
   onToggleAutoExtract: (id: string, enabled: boolean) => void;
+  onToggleTrusted: (id: string, enabled: boolean) => void;
   onDeleteSource: (id: string) => void;
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -180,6 +206,7 @@ function LearnedSources({
           const totalDecisions = source.total_approved + source.total_rejected;
           const isLowPerformance = rate !== null && rate < 50 && totalDecisions >= 10;
           const isEditing = editingId === source.id;
+          const canEnableTrusted = rate !== null && rate >= 80 && totalDecisions >= 10;
 
           return (
             <div
@@ -241,6 +268,23 @@ function LearnedSources({
                   />
                   Auto-extract
                 </label>
+                <label
+                  className={`flex items-center gap-2 text-xs ${canEnableTrusted ? "cursor-pointer" : "cursor-not-allowed opacity-50"}`}
+                  title={
+                    canEnableTrusted
+                      ? "Enable trusted auto-approve for high-confidence leads"
+                      : "Need ≥80% approval rate and 10+ decisions to enable trusted auto-approve"
+                  }
+                >
+                  <input
+                    type="checkbox"
+                    checked={source.is_trusted}
+                    onChange={() => onToggleTrusted(source.id, !source.is_trusted)}
+                    disabled={!canEnableTrusted && !source.is_trusted}
+                    className="rounded"
+                  />
+                  Trusted
+                </label>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -258,10 +302,172 @@ function LearnedSources({
   );
 }
 
+function PreferencesPanel({
+  preferences,
+  totalDecisions,
+}: {
+  preferences: LeadPreferences | null;
+  totalDecisions: number;
+}) {
+  const router = useRouter();
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  async function handleAnalyze() {
+    setIsAnalyzing(true);
+    try {
+      const res = await fetch("/api/jobs/analyze-preferences", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Analysis failed");
+      } else {
+        toast.success("Preferences updated");
+        router.refresh();
+      }
+    } catch {
+      toast.error("Analysis failed");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }
+
+  const hasPreferences = preferences !== null;
+  const notEnoughData = !hasPreferences && totalDecisions < 5;
+
+  return (
+    <div className="mt-8">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-lg font-semibold">My Preferences</h2>
+        {!notEnoughData && (
+          <Button
+            variant={hasPreferences ? "outline" : "default"}
+            size="sm"
+            onClick={handleAnalyze}
+            disabled={isAnalyzing}
+          >
+            {isAnalyzing ? (
+              <>
+                <Loader2 className="size-3.5 mr-1.5 animate-spin" />
+                Analyzing your {totalDecisions} decisions…
+              </>
+            ) : hasPreferences ? (
+              "Re-analyze"
+            ) : (
+              "Analyze My Preferences"
+            )}
+          </Button>
+        )}
+      </div>
+
+      {notEnoughData ? (
+        <div className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+          Not enough decisions yet. Approve or reject at least 5 leads to generate preferences.
+        </div>
+      ) : hasPreferences ? (
+        <div className="rounded-lg border divide-y">
+          <div className="px-4 py-3 space-y-2">
+            {preferences.positive_signals.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1.5">Positive signals</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {preferences.positive_signals.map((s) => (
+                    <span
+                      key={s}
+                      className="inline-flex rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                    >
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {preferences.negative_signals.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1.5">Negative signals</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {preferences.negative_signals.map((s) => (
+                    <span
+                      key={s}
+                      className="inline-flex rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
+                    >
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {preferences.preferred_companies.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1.5">Preferred companies</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {preferences.preferred_companies.map((c) => (
+                    <span
+                      key={c}
+                      className="inline-flex rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
+                    >
+                      {c}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {preferences.preferred_locations.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1.5">Preferred locations</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {preferences.preferred_locations.map((l) => (
+                    <span
+                      key={l}
+                      className="inline-flex rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-800 dark:bg-purple-900/30 dark:text-purple-400"
+                    >
+                      {l}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="px-4 py-2 flex items-center justify-between text-xs text-muted-foreground">
+            <span>
+              Based on {preferences.decision_count} decisions
+              {preferences.last_analyzed_at
+                ? ` · last analyzed ${timeAgo(preferences.last_analyzed_at)}`
+                : ""}
+            </span>
+            <span
+              className={
+                preferences.decision_count >= 10
+                  ? "text-green-600 dark:text-green-400"
+                  : "text-amber-600 dark:text-amber-400"
+              }
+            >
+              {preferences.decision_count >= 10
+                ? "Auto-approve enabled when source is trusted"
+                : `${preferences.decision_count}/10 decisions for auto-approve`}
+            </span>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-dashed px-4 py-6 text-center">
+          <p className="text-sm text-muted-foreground mb-3">
+            You have {totalDecisions} decision{totalDecisions !== 1 ? "s" : ""}. Click &ldquo;Analyze My
+            Preferences&rdquo; to extract your job preferences from your approve/reject history.
+          </p>
+          {totalDecisions < 10 && (
+            <p className="text-xs text-muted-foreground">
+              {totalDecisions}/10 decisions needed for auto-approve
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function JobLeadsClient({
   initialLeads,
   initialStats,
   sources,
+  initialPreferences,
 }: JobLeadsClientProps) {
   const [leads, setLeads] = useState(initialLeads);
   const [stats, setStats] = useState(initialStats);
@@ -448,6 +654,16 @@ export function JobLeadsClient({
     }
   }
 
+  async function handleToggleTrusted(sourceId: string, enabled: boolean) {
+    const result = await toggleTrustedSource(sourceId, enabled);
+    if (result.success) {
+      toast.success(enabled ? "Trusted auto-approve enabled" : "Trusted auto-approve disabled");
+      window.location.reload();
+    } else {
+      toast.error(result.error || "Failed to update");
+    }
+  }
+
   async function handleDeleteSource(sourceId: string) {
     const result = await deleteJobEmailSource(sourceId);
     if (result.success) {
@@ -464,6 +680,8 @@ export function JobLeadsClient({
     { value: "approved", label: "Approved", count: stats.approved },
     { value: "rejected", label: "Rejected", count: stats.rejected },
   ];
+
+  const totalDecisions = stats.approved + stats.rejected;
 
   return (
     <div className="space-y-4">
@@ -531,7 +749,7 @@ export function JobLeadsClient({
               onChange={toggleSelectAll}
               className="rounded"
             />
-            <span className="w-20">Status</span>
+            <span className="w-28">Status</span>
             <span className="flex-1">Job / Company</span>
             <span className="w-28 hidden sm:block">Location</span>
             <span className="w-24 hidden md:block">Score</span>
@@ -556,8 +774,12 @@ export function JobLeadsClient({
                 />
 
                 {/* Status */}
-                <div className="w-20 shrink-0">
-                  <StatusBadge status={lead.lead_status as LeadStatus} />
+                <div className="w-28 shrink-0">
+                  <StatusBadge
+                    status={lead.lead_status as LeadStatus}
+                    autoApproved={lead.auto_approved}
+                    autoApproveReason={lead.auto_approve_reason}
+                  />
                 </div>
 
                 {/* Title + Company */}
@@ -716,7 +938,14 @@ export function JobLeadsClient({
       <LearnedSources
         sources={sources}
         onToggleAutoExtract={handleToggleAutoExtract}
+        onToggleTrusted={handleToggleTrusted}
         onDeleteSource={handleDeleteSource}
+      />
+
+      {/* My Preferences */}
+      <PreferencesPanel
+        preferences={initialPreferences}
+        totalDecisions={totalDecisions}
       />
     </div>
   );

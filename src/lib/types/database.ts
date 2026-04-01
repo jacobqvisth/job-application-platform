@@ -441,6 +441,8 @@ export interface JobListing {
   lead_status: 'pending' | 'approved' | 'rejected' | null;
   source_email_id: string | null;
   auto_approved: boolean;
+  // Phase JL3: Auto-approve reason
+  auto_approve_reason: string | null;
 }
 
 export type LeadStatus = 'pending' | 'approved' | 'rejected';

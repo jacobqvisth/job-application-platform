@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getJobLeads, getJobLeadStats, getJobEmailSources } from "@/lib/data/job-leads";
+import { getPreferences } from "@/lib/jobs/preferences";
 import { JobLeadsClient } from "@/components/job-leads/job-leads-client";
 
 export default async function JobLeadsPage() {
@@ -9,10 +10,11 @@ export default async function JobLeadsPage() {
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const [leads, stats, sources] = await Promise.all([
+  const [leads, stats, sources, preferences] = await Promise.all([
     getJobLeads(user.id, { limit: 100 }),
     getJobLeadStats(user.id),
     getJobEmailSources(user.id),
+    getPreferences(supabase, user.id),
   ]);
 
   return (
@@ -27,6 +29,7 @@ export default async function JobLeadsPage() {
         initialLeads={leads}
         initialStats={stats}
         sources={sources}
+        initialPreferences={preferences}
       />
     </div>
   );

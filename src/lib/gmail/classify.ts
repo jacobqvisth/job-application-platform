@@ -141,14 +141,16 @@ Respond with ONLY the category name, nothing else.`,
 
           const { data: source } = await supabase
             .from("job_email_sources")
-            .select("id, total_extracted")
+            .select("id, total_extracted, is_trusted")
             .eq("user_id", userId)
             .eq("sender_email", senderEmail)
             .eq("is_auto_extract", true)
             .maybeSingle();
 
           if (source) {
-            const result = await extractJobsFromEmail(supabase, email.id, userId);
+            const result = await extractJobsFromEmail(supabase, email.id, userId, {
+              isTrusted: source.is_trusted ?? false,
+            });
 
             await supabase
               .from("job_email_sources")

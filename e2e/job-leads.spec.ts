@@ -132,6 +132,33 @@ test.describe('Job Leads', () => {
 
   });
 
+  // ─── JL3: Preferences panel ───────────────────────────────────────────────
+
+  test.describe('Preferences panel', () => {
+
+    test('job leads page has My Preferences section', async ({ page }) => {
+      await page.goto('/dashboard/job-leads');
+      await page.waitForLoadState('networkidle');
+
+      // Should have the My Preferences heading or Analyze button
+      const hasHeading = await page.getByRole('heading', { name: /My Preferences/i }).isVisible().catch(() => false);
+      const hasButton = await page.getByRole('button', { name: /Analyze My Preferences|Re-analyze/i }).isVisible().catch(() => false);
+      expect(hasHeading || hasButton).toBeTruthy();
+    });
+
+    test('POST /api/jobs/analyze-preferences (authenticated) returns 400 or 200, never 500', async ({ request }) => {
+      // Test user likely has <5 decisions — should get 400 not 500
+      const response = await request.post('/api/jobs/analyze-preferences');
+      // Must NOT be 500
+      expect(response.status()).not.toBe(500);
+      if (response.status() === 400) {
+        const data = await response.json();
+        expect(data.error).toBeTruthy();
+      }
+    });
+
+  });
+
   // ─── API Auth Tests (unauthenticated) ──────────────────────────────────
 
   test.describe('API auth checks', () => {
@@ -180,6 +207,11 @@ test.describe('Job Leads', () => {
         data: { emailId: '00000000-0000-0000-0000-000000000000', classification: 'invalid_type' },
       });
       expect([400, 401]).toContain(response.status());
+    });
+
+    test('POST /api/jobs/analyze-preferences returns 401 when unauthenticated', async ({ request }) => {
+      const response = await request.post('/api/jobs/analyze-preferences');
+      expect(response.status()).toBe(401);
     });
   });
 });

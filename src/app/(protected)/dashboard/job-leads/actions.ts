@@ -193,6 +193,46 @@ export async function toggleAutoExtract(sourceId: string, enabled: boolean) {
   return { success: true };
 }
 
+export async function toggleTrustedSource(sourceId: string, enabled: boolean) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Not authenticated" };
+
+  if (enabled) {
+    // Verify approval rate ≥ 80% and total decisions ≥ 10 before enabling
+    const { data: source } = await supabase
+      .from("job_email_sources")
+      .select("total_approved, total_rejected")
+      .eq("id", sourceId)
+      .eq("user_id", user.id)
+      .single();
+
+    if (!source) return { success: false, error: "Source not found" };
+
+    const totalDecisions = source.total_approved + source.total_rejected;
+    const rate = totalDecisions > 0 ? (source.total_approved / totalDecisions) * 100 : 0;
+
+    if (totalDecisions < 10) {
+      return { success: false, error: "Need at least 10 approve/reject decisions to enable trusted auto-approve" };
+    }
+    if (rate < 80) {
+      return { success: false, error: "Need ≥80% approval rate to enable trusted auto-approve" };
+    }
+  }
+
+  const { error } = await supabase
+    .from("job_email_sources")
+    .update({ is_trusted: enabled, updated_at: new Date().toISOString() })
+    .eq("id", sourceId)
+    .eq("user_id", user.id);
+
+  if (error) return { success: false, error: error.message };
+  revalidatePath("/dashboard/job-leads");
+  return { success: true };
+}
+
 export async function deleteJobEmailSource(sourceId: string) {
   const supabase = await createClient();
   const {
