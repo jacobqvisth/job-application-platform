@@ -1,5 +1,26 @@
 # Claude Code Session Log
 
+## Phase E3 — Extension Pipeline View
+
+**Date:** 2026-04-01
+
+### What was built
+- **New API route** `src/app/api/extension/applications/route.ts` — `GET /api/extension/applications?company=<name>` (ILIKE fuzzy match, returns up to 10 matching applications) and `PATCH /api/extension/applications` (update status by id, with `user_id` guard). Full CORS headers for extension use.
+- **`extension/lib/api.js`** — added `fetchApplicationsByCompany(company)` and `updateApplicationStatus(id, status)` functions using existing `authFetch` wrapper.
+- **`extension/background.js`** — added `GET_APPLICATIONS` and `UPDATE_APPLICATION_STATUS` message handlers wired to the two new api.js functions.
+- **5 content scripts updated** (`content.js`, `content-teamtailor.js`, `content-varbi.js`, `content-jobylon.js`, `content-reachmee.js`) — each got pipeline CSS classes, a `jac-pipeline` HTML section (hidden by default), and a `loadPipeline()` IIFE that fires on sidebar init to show tracked applications at the current company with an inline status dropdown.
+
+### Migration applied
+None — phase reads/updates existing `applications` table only.
+
+### Test result
+`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 warnings. Build pre-render failure is pre-existing env var issue (confirmed by stash test), unrelated to these changes.
+
+### Next step
+Deploy to production: `vercel --prod --yes`. Then reload the extension and visit a job page for a tracked company to verify the pipeline section appears automatically.
+
+---
+
 ## Phase 10a — Conversational AI Chat Interface (Foundation)
 
 **Date:** 2026-03-28
@@ -31,6 +52,8 @@ Phase 10b — Chat-first layout improvements, smart context flows, and adaptive 
 
 ---
 
+---
+
 ## Phase 10a Fix — Hydration Error + Test Updates (2026-03-28)
 
 ### What was fixed
@@ -43,10 +66,14 @@ TypeScript compiles clean (`✓ Compiled successfully`, `Finished TypeScript in 
 ### Next step
 Deploy to Vercel and run E2E suite against production to confirm all 78 tests pass (79 minus the 1 removed redundant test).
 
+---
+
 ## Phase 10a Fix 2 — React Hydration Error #418
 
 - **Fixed:** Added `mounted` state guard to `ChatPage` in `src/app/(protected)/dashboard/chat/page.tsx` — the component now returns `<div className="flex-1" />` on the server render, then hydrates with full UI on client, eliminating the React #418 hydration mismatch error.
 - **Test expectation:** E2E tests at `e2e/dashboard.spec.ts` lines 14 and 61 navigate to `/dashboard` (redirects to `/dashboard/chat`), wait for `networkidle`, and assert no console errors — these should now pass cleanly with all 78 tests green.
+
+---
 
 ---
 
@@ -77,6 +104,8 @@ TypeScript compilation clean (`✓ Compiled successfully`, `Finished TypeScript`
 ### Next step
 Phase 10c: Job discovery improvements, saved search management, and push notifications for new matches.
 
+---
+
 ## Phase 10b Fix — E2E Auth Test Selector Update
 
 **Date:** 2026-03-28
@@ -86,6 +115,8 @@ Phase 10c: Job discovery improvements, saved search management, and push notific
 - **Migration applied:** None.
 - **Test result:** 78/78 passed against production (`https://job-application-platform-lake.vercel.app`).
 - **Next step:** Phase 10c: Job discovery improvements, saved search management, and push notifications for new matches.
+
+---
 
 ## Phase 10c — Smart Flows & Multi-Step Conversations
 
@@ -103,6 +134,8 @@ Phase 10c: Job discovery improvements, saved search management, and push notific
 - **Migration applied:** None — flow state lives in conversation history and system prompt, no new DB tables.
 - **Test result:** 78/78 E2E tests passed against production (`https://job-application-platform-lake.vercel.app`).
 - **Next step:** Phase 10d: Job discovery improvements — saved search management, match scoring, and push notifications for new matches.
+
+---
 
 ## Phase 10e — Adaptive Intelligence & Search Insights
 
@@ -124,6 +157,8 @@ Phase 10c: Job discovery improvements, saved search management, and push notific
 
 ---
 
+---
+
 ## Phase 11a — Enhanced LinkedIn Extension
 
 **Date:** 2026-03-28
@@ -133,6 +168,8 @@ Phase 10c: Job discovery improvements, saved search management, and push notific
 - **Migration applied:** None — no schema changes required.
 - **Test result:** TypeScript compiled cleanly (`✓ Compiled successfully`); build fails only on pre-existing Supabase env var prerender error (unrelated); lint errors are all pre-existing in other files; extension changes are JS-only and don't affect Next.js build.
 - **Next step:** Deploy with `vercel --prod --yes`, run E2E tests against production, then load the extension in Chrome and manually test on a LinkedIn job page.
+
+---
 
 ---
 
@@ -149,6 +186,8 @@ Phase 10c: Job discovery improvements, saved search management, and push notific
 
 ---
 
+---
+
 ## Phase 11c — Sign In with LinkedIn + Share Milestones
 
 **Date:** 2026-03-28
@@ -158,6 +197,8 @@ Phase 10c: Job discovery improvements, saved search management, and push notific
 - **Files modified:** `src/app/(auth)/login/page.tsx`, `src/app/(protected)/dashboard/settings/page.tsx`, `src/app/(protected)/dashboard/applications/{page,applications-client}.tsx`, `src/lib/types/database.ts`, `src/lib/chat/{tools,types,system-prompt}.ts`, `src/app/api/chat/route.ts`, `src/components/chat/chat-message.tsx`. Also installed missing packages (`ai`, `@ai-sdk/anthropic`, `@ai-sdk/react`, `react-markdown`) from Phase 11b.
 - **Migration applied:** `011_linkedin_connections.sql` created but NOT applied — apply via Supabase MCP before deploying.
 - **Test result:** TypeScript compilation ✓ clean (`Compiled successfully`, `Finished TypeScript`); lint 22 problems all pre-existing; E2E tests not run locally — run against prod after deploy. Next: apply migration `011_linkedin_connections.sql` via Supabase MCP, then `vercel --prod --yes`, then run E2E suite.
+
+---
 
 ---
 
@@ -184,6 +225,8 @@ Phase 10c: Job discovery improvements, saved search management, and push notific
 - **Test result:** All 78 E2E tests pass against production (`https://job-application-platform-lake.vercel.app`). `npm run lint` clean (0 errors, 0 warnings). `npx tsc --noEmit` clean.
 - **Next step:** codebase is in a clean, healthy state — proceed with feature work.
 
+---
+
 ## Phase S1 — JobTechDev API Integration (2026-03-29)
 - **What was built:** Replaced Adzuna as the primary Swedish job source with JobTechDev (Arbetsförmedlingen/Platsbanken). Created `src/lib/chat/jobtechdev-search.ts` with three exports: `searchJobTechDev` (chat tool, with user-profile match scoring), `fetchJobTechDevRaw` (cron/server use), and `autocompleteJobTechDev`. ATS detection (Teamtailor, Varbi, Jobylon, Reachmee, Workday, Greenhouse, Lever) is derived from the apply URL. The chat `searchJobsTool` now defaults to JobTechDev but falls back to Adzuna when `source: 'adzuna'` is passed (kept as international fallback). The cron `job-discovery` route now routes Swedish searches (country `se` or null) to JobTechDev with `published-after` pagination and a 100ms inter-request delay; non-Swedish searches still use Adzuna. The `/api/jobs/search` route accepts a `source` param defaulting to `jobtechdev`.
 - **Files changed:** `src/lib/chat/jobtechdev-search.ts` (new), `src/lib/chat/types.ts` (10 new optional fields on `JobResult`), `src/lib/chat/tools.ts` (searchJobsTool updated), `src/app/api/jobs/search/route.ts` (JobTechDev primary, Adzuna fallback), `src/app/api/cron/job-discovery/route.ts` (Swedish → JobTechDev, 100ms delay), `src/lib/data/job-listings.ts` (8 new optional fields on `JobListingInsert`), `src/lib/types/database.ts` (`JobListing.source` widened to include `jobtechdev`, 8 new nullable fields), `src/components/chat/job-search-results.tsx` (Platsbanken badge, ATS badge, deadline, required-skills tags, vacancy count, direct Apply URL).
@@ -191,12 +234,16 @@ Phase 10c: Job discovery improvements, saved search management, and push notific
 - **Test result:** `npm run build` passes clean (0 TypeScript errors, 0 lint errors, all 58 routes compiled). No E2E run yet — migration must be applied first.
 - **Next step:** Apply migration `012_jobtechdev_fields.sql` via Supabase MCP, deploy to Vercel, run `npm run test:e2e` against production, then test live Swedish job search in chat ("Sök jobb som utvecklare i Stockholm").
 
+---
+
 ## Phase S2 — Varbi Extension Adapter (2026-03-29)
 - **What was built:** Full Chrome extension adapter for Varbi (Grade Varbi Recruit), Sweden's dominant public-sector ATS (kommuner, regioner, universities, myndigheter). `extension/mappers/varbi.js` exports `isApplicationPage`, `getJobInfo`, `detectFields`, and `fillField` following the Teamtailor mapper pattern. `VARBI_FIELD_MAP` covers all Quick Apply personal-info fields (email, email_repeat, first_name, last_name, address, postal_code, city, phone, country). `detectFields` also surfaces employer-specific screening questions as manual-only items in the sidebar. `fillField` uses Vue.js-compatible event dispatch (no React workaround needed). `extension/content-varbi.js` handles three page types: job detail pages (`what:job` URL) show Save/Draft buttons; Quick Apply pages (`apply/positionquick`) show the full sidebar with Fill from Profile; login-gated pages (`what:login`) show a guidance banner then watch for the form to appear post-login via MutationObserver. Consent/GDPR checkboxes and file upload fields are never auto-filled. `extension/manifest.json` gained a `*://*.varbi.com/*` content script entry and host permission. `postal_code` was added to `UserProfileData` and `ExtensionProfile` types and to the `/api/extension/profile` response. `jobtechdev-search.ts` already had Varbi ATS detection — no change needed.
 - **Files changed:** `extension/mappers/varbi.js` (new), `extension/content-varbi.js` (new), `extension/manifest.json` (Varbi content script + host permission), `src/lib/types/database.ts` (`postal_code` added to `UserProfileData` and `ExtensionProfile`), `src/app/api/extension/profile/route.ts` (`postal_code` in profile response).
 - **Migration created:** `supabase/migrations/013_varbi_postal_code.sql` — adds `postal_code text` column to `user_profile_data`. Must be applied via Supabase MCP before deploying.
 - **Test result:** `npx tsc --noEmit` — 0 errors. `npm run lint` — 0 warnings. `npm run build` fails only on the pre-existing Supabase env-var issue in the worktree (not caused by this session's changes).
 - **Next step:** Apply migration `013_varbi_postal_code.sql` via Supabase MCP, reload extension in Chrome, test Quick Apply on a real Varbi position (e.g. migrationsverket.varbi.com), test login-required flow on uu.varbi.com, verify Save to Tracker works from a job detail page.
+
+---
 
 ---
 
@@ -211,6 +258,8 @@ Phase 10c: Job discovery improvements, saved search management, and push notific
 - **Personligt Brev generation:** `src/app/api/application/draft/route.ts` extended with optional `language: "sv" | "en"` parameter and auto-detection from job description keywords; Swedish path replaces system prompt and cover letter instruction with Swedish-specific "personligt brev" guidance (warm/personal tone, Swedish norms, correct format with date + greeting + 3–4 paragraphs + sign-off); response adds `letter_type` and `language` fields while keeping `cover_letter` for backwards compat. `src/components/draft/draft-wizard.tsx` gets a 🇸🇪/🇬🇧 language toggle, auto-detects Swedish from JD, localises tone labels, and shows "Personligt Brev" tab title when Swedish.
 - **Test result:** `npx tsc --noEmit` — 0 errors. `npm run lint` — 0 warnings. `npm run build` compiles successfully; pre-render fails only on missing Supabase env vars in worktree (pre-existing, unrelated).
 - **Next step:** Create `resume-photos` Supabase Storage bucket (public) via Supabase MCP before deploying. After deploy, manually test: (1) create resume with Swedish template → verify preview renders with accent titles, (2) upload photo → check preview, (3) export PDF + DOCX, (4) generate personligt brev from Swedish job ad → verify Swedish output format.
+
+---
 
 ---
 
@@ -247,6 +296,8 @@ Chrome extension adapters for the #2 and #3 ATS platforms in Sweden, covering 26
 
 ---
 
+---
+
 ## Phase D1+D2 — Job Leads Inbox (Email Extraction + Manual Entry + Inbox UI)
 
 **Date:** 2026-03-30
@@ -269,6 +320,8 @@ Phase D3 — Chat integration: `getDiscoveredJobs` tool (Tool 17), `searchJobs` 
 
 ---
 
+---
+
 ## Phase D1a — Universal Job Deduplication Foundation
 
 **Date:** 2026-03-30
@@ -280,6 +333,8 @@ Phase D3 — Chat integration: `getDiscoveredJobs` tool (Tool 17), `searchJobs` 
 - **Ingest path wiring:** `src/app/api/extension/save-job/route.ts` replaced URL-only dedup with `findOrCreateJobListing`; maps all ATS types (teamtailor/varbi/jobylon/reachmee/greenhouse/lever/workday/linkedin/unknown→manual) to `JobSource`; returns `alreadyApplied`, `alreadySaved`, `warningMessage`, `appliedAt` in response. `src/lib/chat/tools.ts` `saveJobToTrackerTool` wired through dedup service; `SaveJobToTrackerResult` extended with `alreadyApplied`, `warningMessage`, `jobListingId` fields. `src/lib/data/job-listings.ts` `upsertJobListings` now enriches all cron-ingested records with normalization fields.
 - **UI updates:** `src/components/chat/save-job-confirmation.tsx` adds amber "Already Applied" card (AlertTriangle icon) with applied date + link, shown when `alreadyApplied: true`, in addition to existing blue "Already in tracker" and green "Saved" states. `extension/content.js` save button handler now shows `.jac-warn-applied` (orange) and `.jac-warn-saved` (yellow) inline banners before any existing results; CSS classes added to `getSidebarCSS()`.
 - **Build result:** `npx tsc --noEmit` — 0 errors. `npm run lint` — 0 warnings. `npm run build` — all routes compiled successfully. **Next step:** Apply migration `016_universal_job_index.sql` via Supabase MCP, then deploy with `vercel --prod --yes` and run E2E suite.
+
+---
 
 ---
 
@@ -318,6 +373,8 @@ None — all new features use existing D1a schema columns and tables.
 ### Next step
 Apply D1b to production: `vercel --prod --yes`. Then run E2E suite against production. Phase D2 can build on top of this — deeper email→application auto-linking, bulk import UI in the Jobs page.
 
+---
+
 ## Phase D3 — Chat Integration for Job Leads
 
 **Date:** 2026-03-30
@@ -351,6 +408,8 @@ None — D3 uses existing schema from migration 017 (D1a).
 ### Next step
 Deploy to production: `vercel --prod --yes`. Then run E2E suite. Phase D4 could add deeper inbox management — bulk apply, snooze, dismiss flows — or pivoting to the next planned phase.
 
+---
+
 ## Phase E1 — Apply from Job Lead (One-Click)
 
 **Date:** 2026-03-30
@@ -373,6 +432,37 @@ None — no schema changes; `job_listing_id` on `applications` and `application_
 
 ### Next step
 Deploy to production: `vercel --prod --yes`. Run E2E suite. Phase E2 could add bulk-apply flows, or move to the next planned phase (e.g. answer-library AI suggestions or morning brief improvements).
+
+---
+
+---
+
+## Phase E2 — AI Job Scoring (Semantic Match Score + Reason)
+
+**Date:** 2026-03-31
+
+### What was built
+- **Migration `018_job_ai_scoring.sql`**: Adds `match_reason TEXT` and `ai_scored_at TIMESTAMPTZ` columns to `job_listings`, with a partial index on unscored jobs (`WHERE ai_scored_at IS NULL`).
+- **`src/lib/jobs/ai-score.ts`**: Batch Haiku scoring service — fetches user profile (skills, work history, summary), scores up to 30 unscored job listings in batches of 10, updates `match_score` + `match_reason` + `ai_scored_at` atomically. Returns count of scored jobs.
+- **Automatic scoring hooks**: Fire-and-forget `scoreUnscoredJobsForUser` added after (1) cron job-discovery searches complete (all affected users), (2) `searchJobsTool` jobtechdev/adzuna persist calls. Both are `void` + catch to never block response.
+- **Tool 20 `scoreJobLeads`**: Chat tool that scores unscored leads on demand. Registered in `/api/chat/route.ts`. System prompt updated with Tool 20 description.
+- **`POST /api/jobs/score-leads`**: On-demand endpoint for client-side triggering. Auth-gated, returns `{ scored: number }`.
+- **UI**: `JobCard` shows `match_reason` (italic, muted) below the match bar. `DiscoveredJobsCard` shows `matchReason` under each job title. Morning brief shows "N high match (80%+)" inline with new leads count.
+
+### Files changed
+- New: `src/lib/jobs/ai-score.ts`, `src/app/api/jobs/score-leads/route.ts`, `supabase/migrations/018_job_ai_scoring.sql`
+- Modified: `src/app/api/chat/route.ts`, `src/app/api/cron/job-discovery/route.ts`, `src/components/chat/discovered-jobs-card.tsx`, `src/components/chat/morning-brief.tsx`, `src/components/jobs/job-card.tsx`, `src/lib/chat/morning-brief.ts`, `src/lib/chat/system-prompt.ts`, `src/lib/chat/tools.ts`, `src/lib/chat/types.ts`, `src/lib/types/database.ts`
+
+### Migration applied
+`018_job_ai_scoring` — applied via Supabase MCP ✅ (confirmed in list_migrations)
+
+### Test result
+89/89 E2E tests passed ✅ (deployed 2026-03-31)
+
+### Next step
+Phase E1b — Sweden country option + smart primary market default. Then Phase E3 (extension full pipeline view).
+
+---
 
 ---
 
@@ -399,22 +489,3 @@ None.
 Deploy to production: `vercel --prod --yes`. Verify Sweden appears in dropdown and that a user with SE as primary market sees it pre-selected.
 
 ---
-
-## Phase E3 — Extension Pipeline View
-
-**Date:** 2026-04-01
-
-### What was built
-- **New API route** `src/app/api/extension/applications/route.ts` — `GET /api/extension/applications?company=<name>` (ILIKE fuzzy match, returns up to 10 matching applications) and `PATCH /api/extension/applications` (update status by id, with `user_id` guard). Full CORS headers for extension use.
-- **`extension/lib/api.js`** — added `fetchApplicationsByCompany(company)` and `updateApplicationStatus(id, status)` functions using existing `authFetch` wrapper.
-- **`extension/background.js`** — added `GET_APPLICATIONS` and `UPDATE_APPLICATION_STATUS` message handlers wired to the two new api.js functions.
-- **5 content scripts updated** (`content.js`, `content-teamtailor.js`, `content-varbi.js`, `content-jobylon.js`, `content-reachmee.js`) — each got pipeline CSS classes, a `jac-pipeline` HTML section (hidden by default), and a `loadPipeline()` IIFE that fires on sidebar init to show tracked applications at the current company with an inline status dropdown.
-
-### Migration applied
-None — phase reads/updates existing `applications` table only.
-
-### Test result
-`npx tsc --noEmit` — 0 errors. `npm run lint` — 0 warnings. Build pre-render failure is pre-existing env var issue (confirmed by stash test), unrelated to these changes.
-
-### Next step
-Deploy to production: `vercel --prod --yes`. Then reload the extension and visit a job page for a tracked company to verify the pipeline section appears automatically.
