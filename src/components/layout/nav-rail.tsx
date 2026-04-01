@@ -20,6 +20,7 @@ import {
   UploadCloud,
   MessageCircle,
   Puzzle,
+  Target,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -36,6 +37,7 @@ import {
 const PRIMARY_NAV = [
   { href: "/dashboard/chat", label: "Chat", icon: MessageSquare },
   { href: "/dashboard/applications", label: "Applications", icon: Briefcase },
+  { href: "/dashboard/job-leads", label: "Job Leads", icon: Target },
   { href: "/dashboard/jobs", label: "Jobs", icon: Search },
   { href: "/dashboard/draft", label: "Draft Application", icon: PenLine },
   { href: "/dashboard/answers", label: "Answer Library", icon: BookOpen },
