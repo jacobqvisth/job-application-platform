@@ -233,6 +233,8 @@
       .jac-btn-primary:hover:not(:disabled) { background: #1e3a8a; }
       .jac-btn-secondary { background: #f1f5f9; color: #334155; border: 1px solid #e2e8f0; }
       .jac-btn-secondary:hover:not(:disabled) { background: #e2e8f0; }
+      .jac-btn-studio { background: #5347CE; color: white; font-size: 14px; padding: 10px 12px; }
+      .jac-btn-studio:hover:not(:disabled) { background: #4338a8; }
       .jac-divider { border: none; border-top: 1px solid #e2e8f0; }
       .jac-label { font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
       .jac-textarea {
@@ -269,6 +271,7 @@
         </div>
         <div class="jac-status jac-status-warn" id="jac-auth-status">Checking…</div>
         <div id="jac-match-area"></div>
+        <button class="jac-btn jac-btn-studio" id="jac-studio-btn">✨ Generate Application Package</button>
         <button class="jac-btn jac-btn-primary" id="jac-draft-btn">📋 Open Draft Wizard</button>
         <button class="jac-btn jac-btn-secondary" id="jac-save-btn">💾 Save to Tracker</button>
         <hr class="jac-divider">
@@ -324,6 +327,38 @@
       if (container.classList.contains('collapsed')) {
         container.classList.remove('collapsed');
       }
+    });
+
+    shadow.getElementById('jac-studio-btn').addEventListener('click', () => {
+      const studioBtn = shadow.getElementById('jac-studio-btn');
+      studioBtn.disabled = true;
+      studioBtn.textContent = '⏳ Saving…';
+
+      const job = {
+        title: jobData.title,
+        company: jobData.company,
+        url: jobData.url,
+        location: jobData.location,
+        description: jobData.description,
+        ats_type: 'linkedin',
+      };
+
+      chrome.runtime.sendMessage({ type: 'SAVE_JOB', job }, (response) => {
+        if (response?.success && response?.jobListingId) {
+          studioBtn.textContent = '✨ Opening Application Studio…';
+          chrome.runtime.sendMessage({
+            type: 'OPEN_TAB',
+            url: `${APP_URL}/dashboard/application-studio?job=${response.jobListingId}`,
+          });
+        } else if (response?.success) {
+          // Saved but no jobListingId — fall back to studio without prefill
+          studioBtn.textContent = '✨ Opening Application Studio…';
+          chrome.runtime.sendMessage({ type: 'OPEN_TAB', url: `${APP_URL}/dashboard/application-studio` });
+        } else {
+          studioBtn.disabled = false;
+          studioBtn.textContent = '✗ Error — not connected?';
+        }
+      });
     });
 
     shadow.getElementById('jac-draft-btn').addEventListener('click', () => {

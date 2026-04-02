@@ -637,3 +637,36 @@ No E2E run this session (no functional changes). `npm run lint` 0 warnings. `npx
 
 ### Next step
 Deploy to production and run full E2E suite: `vercel --prod --yes && TEST_BASE_URL=https://job-application-platform-lake.vercel.app npm run test:e2e`
+
+## Phase AS1 — Application Studio Foundation + Job Analysis
+
+**Date:** 2026-04-02
+
+### What was built
+- **Migration** `supabase/migrations/021_application_packages.sql`: `application_packages` table with full pipeline state machine (8 statuses), JSONB columns for all 7 pipeline steps, RLS, and indexes — NOT applied, pending Supabase MCP
+- **Model config** `src/lib/config/models.ts`: Centralized tiered AI model config (fast/standard/premium → Haiku/Sonnet/Opus) with cost estimation helper
+- **TypeScript types** added to `src/lib/types/database.ts`: `ApplicationPackage`, `JobAnalysis`, `CompanyResearch`, `Checkpoint1Edits`, `AiUsage`, `PackageStatus`, supporting interfaces
+- **Data layer** `src/lib/data/application-studio.ts`: CRUD helpers (`createPackage`, `getPackage`, `updatePackage`, `listPackages`)
+- **API routes**: `POST /api/application-studio/analyze` (parallel Haiku calls for job analysis + company research), `POST /api/application-studio/checkpoint-1` (save edits, advance to `matching`), `GET /api/application-studio/[id]` (fetch package)
+- **Page** `src/app/(protected)/dashboard/application-studio/page.tsx`: Server component supporting `?job=` and `?package=` query params with existing-package detection
+- **Client** `src/components/application-studio/studio-client.tsx`: Full Checkpoint 1 UI — pipeline progress bar, sticky job summary card, editable requirements table with star ratings, keyword chips with category colors, company research editor, cost display, bottom action bar
+- **Nav rail**: Added Application Studio (Sparkles icon) to `PRIMARY_NAV` after Draft Application
+- **Extension**: Added `✨ Generate Application Package` purple studio button above Save to Tracker in LinkedIn sidebar; updated save-job API to return `jobListingId` in all response branches
+- **Skeleton UI** `src/components/ui/skeleton.tsx`: Simple animated skeleton component (was missing from shadcn setup)
+- **E2E tests** `e2e/application-studio.spec.ts`: 7 tests covering auth redirects, API 401/400 guard rails, nav link visibility
+
+### Files changed
+New: `supabase/migrations/021_application_packages.sql`, `src/lib/config/models.ts`, `src/lib/data/application-studio.ts`, `src/app/api/application-studio/analyze/route.ts`, `src/app/api/application-studio/checkpoint-1/route.ts`, `src/app/api/application-studio/[id]/route.ts`, `src/app/(protected)/dashboard/application-studio/page.tsx`, `src/components/application-studio/studio-client.tsx`, `src/components/ui/skeleton.tsx`, `e2e/application-studio.spec.ts`
+Modified: `src/lib/types/database.ts`, `src/components/layout/nav-rail.tsx`, `src/app/api/extension/save-job/route.ts`, `extension/content-linkedin.js`
+
+### Migration created (NOT applied)
+`supabase/migrations/021_application_packages.sql` — apply via Supabase MCP before deploying
+
+### Test result
+`npm run build` ✓ 0 errors | `npm run lint` ✓ 0 errors | `npx tsc --noEmit` ✓ 0 errors
+
+### Next step
+1. Apply migration 021 via Supabase MCP
+2. Deploy: `vercel --prod --yes`
+3. Run E2E suite: `TEST_BASE_URL=https://job-application-platform-lake.vercel.app npm run test:e2e`
+4. Start Phase AS2: evidence matching (Sonnet) + strategy generation

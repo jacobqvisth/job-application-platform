@@ -21,6 +21,7 @@ import {
   MessageCircle,
   Puzzle,
   Target,
+  Sparkles,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -40,6 +41,7 @@ const PRIMARY_NAV = [
   { href: "/dashboard/job-leads", label: "Job Leads", icon: Target },
   { href: "/dashboard/jobs", label: "Jobs", icon: Search },
   { href: "/dashboard/draft", label: "Draft Application", icon: PenLine },
+  { href: "/dashboard/application-studio", label: "Application Studio", icon: Sparkles },
   { href: "/dashboard/answers", label: "Answer Library", icon: BookOpen },
   { href: "/dashboard/knowledge", label: "Knowledge", icon: Brain },
   { href: "/dashboard/resumes", label: "Resumes", icon: FileText },

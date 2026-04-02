@@ -554,6 +554,101 @@ export interface MarketPreferences {
   resume_format: string;
 }
 
+// ─── Application Studio Types ────────────────────────────────────────────
+
+export type PackageStatus =
+  | 'analyzing'
+  | 'checkpoint_1'
+  | 'matching'
+  | 'checkpoint_2'
+  | 'generating'
+  | 'checkpoint_3'
+  | 'completed'
+  | 'abandoned';
+
+export interface JobRequirement {
+  text: string;
+  category: 'must_have' | 'nice_to_have' | 'inferred';
+  priority: number; // 1-5
+}
+
+export interface ExtractedKeyword {
+  keyword: string;
+  frequency: number;
+  category: 'skill' | 'tool' | 'trait' | 'domain';
+}
+
+export interface CultureSignal {
+  signal: string;
+  evidence: string;
+}
+
+export interface JobAnalysis {
+  requirements: JobRequirement[];
+  keywords: ExtractedKeyword[];
+  role_level: 'junior' | 'mid' | 'senior' | 'lead' | 'director' | 'executive';
+  role_family: string;
+  employment_type: string;
+  detected_language: 'en' | 'sv' | 'no' | 'de';
+  culture_signals: CultureSignal[];
+  ats_type: string | null;
+}
+
+export interface CompanyResearch {
+  company_name: string;
+  industry: string;
+  company_size: 'startup' | 'scaleup' | 'mid_market' | 'enterprise' | 'unknown';
+  growth_stage: string;
+  culture_notes: string;
+  values: string[];
+  recent_news: string | null;
+  why_interesting: string;
+}
+
+export interface Checkpoint1Edits {
+  edited_requirements?: JobRequirement[];
+  priority_overrides?: Record<number, number>;
+  added_keywords?: string[];
+  notes?: string;
+}
+
+export interface AiUsageStep {
+  step: string;
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  duration_ms: number;
+  cost_estimate: number;
+}
+
+export interface AiUsage {
+  steps: AiUsageStep[];
+  total_cost_estimate: number;
+}
+
+export interface ApplicationPackage {
+  id: string;
+  user_id: string;
+  job_listing_id: string | null;
+  application_id: string | null;
+  status: PackageStatus;
+  job_analysis: JobAnalysis | null;
+  company_research: CompanyResearch | null;
+  checkpoint_1_edits: Checkpoint1Edits | null;
+  evidence_mapping: unknown | null;  // defined in AS2
+  strategy: unknown | null;          // defined in AS2
+  checkpoint_2_edits: unknown | null;
+  generated_resume: ResumeContent | null;
+  resume_id: string | null;
+  generated_cover_letter: unknown | null; // defined in AS3
+  screening_questions: unknown | null;
+  quality_review: unknown | null;
+  checkpoint_3_edits: unknown | null;
+  ai_usage: AiUsage;
+  created_at: string;
+  updated_at: string;
+}
+
 // LinkedIn connection (OAuth tokens for Share API)
 export interface LinkedInConnection {
   id: string;

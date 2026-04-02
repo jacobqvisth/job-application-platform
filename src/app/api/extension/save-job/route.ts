@@ -86,6 +86,7 @@ export async function POST(request: NextRequest) {
       {
         success: true,
         applicationId: dedupResult.applicationId,
+        jobListingId: dedupResult.jobListingId,
         alreadySaved: true,
         alreadyApplied: true,
         appliedAt: dedupResult.appliedAt,
@@ -101,6 +102,7 @@ export async function POST(request: NextRequest) {
       {
         success: true,
         applicationId: dedupResult.applicationId,
+        jobListingId: dedupResult.jobListingId,
         alreadySaved: true,
         alreadyApplied: false,
         warningMessage: dedupResult.warningMessage,
@@ -123,6 +125,7 @@ export async function POST(request: NextRequest) {
         {
           success: true,
           applicationId: existingApp.id,
+          jobListingId: dedupResult.jobListingId,
           alreadySaved: true,
           alreadyApplied: false,
           warningMessage: dedupResult.warningMessage,
@@ -167,7 +170,7 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json(
-    { success: true, applicationId: application.id, alreadySaved: false },
+    { success: true, applicationId: application.id, jobListingId: dedupResult.jobListingId, alreadySaved: false },
     { headers: CORS_HEADERS }
   );
 }
