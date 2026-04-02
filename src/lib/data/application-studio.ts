@@ -5,6 +5,13 @@ import type {
   JobAnalysis,
   CompanyResearch,
   Checkpoint1Edits,
+  EvidenceMapping,
+  ApplicationStrategy,
+  Checkpoint2Edits,
+  ResumeContent,
+  GeneratedCoverLetter,
+  ScreeningQuestion,
+  Checkpoint3Edits,
   AiUsage,
 } from '@/lib/types/database';
 
@@ -46,6 +53,14 @@ export async function updatePackage(
     job_analysis: JobAnalysis;
     company_research: CompanyResearch;
     checkpoint_1_edits: Checkpoint1Edits;
+    evidence_mapping: EvidenceMapping;
+    strategy: ApplicationStrategy;
+    checkpoint_2_edits: Checkpoint2Edits;
+    generated_resume: ResumeContent;
+    generated_cover_letter: GeneratedCoverLetter;
+    screening_questions: ScreeningQuestion[];
+    checkpoint_3_edits: Checkpoint3Edits;
+    resume_id: string;
     ai_usage: AiUsage;
   }>
 ): Promise<ApplicationPackage> {

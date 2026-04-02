@@ -635,18 +635,102 @@ export interface ApplicationPackage {
   job_analysis: JobAnalysis | null;
   company_research: CompanyResearch | null;
   checkpoint_1_edits: Checkpoint1Edits | null;
-  evidence_mapping: unknown | null;  // defined in AS2
-  strategy: unknown | null;          // defined in AS2
-  checkpoint_2_edits: unknown | null;
+  evidence_mapping: EvidenceMapping | null;
+  strategy: ApplicationStrategy | null;
+  checkpoint_2_edits: Checkpoint2Edits | null;
   generated_resume: ResumeContent | null;
   resume_id: string | null;
-  generated_cover_letter: unknown | null; // defined in AS3
-  screening_questions: unknown | null;
-  quality_review: unknown | null;
-  checkpoint_3_edits: unknown | null;
+  generated_cover_letter: GeneratedCoverLetter | null;
+  screening_questions: ScreeningQuestion[] | null;
+  quality_review: QualityReview | null;
+  checkpoint_3_edits: Checkpoint3Edits | null;
   ai_usage: AiUsage;
   created_at: string;
   updated_at: string;
+}
+
+// ─── Application Studio: Evidence Matching + Strategy Types (AS2) ────────────
+
+export interface EvidenceItem {
+  source: 'work_history' | 'knowledge_item' | 'answer_library' | 'profile';
+  source_id: string | null;
+  text: string;
+  relevance_score: number; // 0-100
+  selected: boolean;
+}
+
+export interface RequirementMatch {
+  requirement: string;
+  category: 'must_have' | 'nice_to_have' | 'inferred';
+  priority: number;
+  evidence: EvidenceItem[];
+  gap_analysis: string | null;
+}
+
+export interface EvidenceMapping {
+  matches: RequirementMatch[];
+  overall_match_score: number; // 0-100
+  strongest_areas: string[];
+  gap_areas: string[];
+}
+
+export interface ApplicationStrategy {
+  positioning: string;
+  lead_with: string[];
+  gap_framing: { gap: string; framing_strategy: string }[];
+  tone: 'formal' | 'warm' | 'energetic' | 'executive';
+  template_recommendation: 'clean' | 'modern' | 'compact' | 'swedish';
+  narrative_arc: string;
+  differentiators: string[];
+}
+
+export interface EvidenceOverride {
+  req_index: number;
+  evidence_index: number;
+  action: 'select' | 'deselect';
+}
+
+export interface StrategyOverride {
+  tone?: ApplicationStrategy['tone'];
+  lead_with?: string[];
+  template_recommendation?: ApplicationStrategy['template_recommendation'];
+  positioning?: string;
+  narrative_arc?: string;
+}
+
+export interface Checkpoint2Edits {
+  evidence_overrides?: EvidenceOverride[];
+  strategy_overrides?: StrategyOverride;
+  notes?: string;
+}
+
+// ─── Application Studio AS3 Types ────────────────────────────────────────────
+
+export interface GeneratedCoverLetter {
+  text: string;
+  tone: 'formal' | 'warm' | 'energetic' | 'executive';
+  language: string;
+  word_count: number;
+}
+
+export interface ScreeningQuestion {
+  question: string;
+  answer: string;
+  evidence_sources: string[];
+  category: string;
+}
+
+export interface QualityReview {
+  resume_score: number;
+  cover_letter_score: number;
+  overall_score: number;
+  suggestions: string[];
+}
+
+export interface Checkpoint3Edits {
+  cover_letter_edits?: { text: string };
+  screening_edits?: { question_index: number; answer: string }[];
+  notes?: string;
 }
 
 // LinkedIn connection (OAuth tokens for Share API)
