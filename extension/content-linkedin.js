@@ -638,7 +638,15 @@
         if (jobId) {
           setTimeout(() => {
             const data = extractJobData();
-            if (data.title || data.company) injectSidebar(data);
+            if (data.title || data.company) {
+              injectSidebar(data);
+            } else {
+              // Retry for slow-loading job details panel (LinkedIn SPA can take >800ms)
+              setTimeout(() => {
+                const retry = extractJobData();
+                if (retry.title || retry.company) injectSidebar(retry);
+              }, 1500);
+            }
           }, 800);
         }
       }, 600);

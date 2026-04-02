@@ -30,6 +30,20 @@ test.describe('Application Studio API auth', () => {
     const res = await request.get('/api/application-studio/nonexistent');
     expect(res.status()).toBe(401);
   });
+
+  test('POST /api/application-studio/match returns 401 without auth', async ({ request }) => {
+    const res = await request.post('/api/application-studio/match', {
+      data: { package_id: 'test' },
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test('POST /api/application-studio/checkpoint-2 returns 401 without auth', async ({ request }) => {
+    const res = await request.post('/api/application-studio/checkpoint-2', {
+      data: { package_id: 'test' },
+    });
+    expect(res.status()).toBe(401);
+  });
 });
 
 // ─── Authenticated tests ────────────────────────────────────────────
@@ -57,6 +71,20 @@ test.describe('Application Studio (authenticated)', () => {
 
   test('POST /api/application-studio/checkpoint-1 returns 400 without package_id', async ({ request }) => {
     const res = await request.post('/api/application-studio/checkpoint-1', {
+      data: {},
+    });
+    expect(res.status()).toBe(400);
+  });
+
+  test('POST /api/application-studio/match returns 400 without package_id', async ({ request }) => {
+    const res = await request.post('/api/application-studio/match', {
+      data: {},
+    });
+    expect(res.status()).toBe(400);
+  });
+
+  test('POST /api/application-studio/checkpoint-2 returns 400 without package_id', async ({ request }) => {
+    const res = await request.post('/api/application-studio/checkpoint-2', {
       data: {},
     });
     expect(res.status()).toBe(400);

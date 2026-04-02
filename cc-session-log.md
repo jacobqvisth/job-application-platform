@@ -670,3 +670,27 @@ Modified: `src/lib/types/database.ts`, `src/components/layout/nav-rail.tsx`, `sr
 2. Deploy: `vercel --prod --yes`
 3. Run E2E suite: `TEST_BASE_URL=https://job-application-platform-lake.vercel.app npm run test:e2e`
 4. Start Phase AS2: evidence matching (Sonnet) + strategy generation
+
+## Phase AS2 — Evidence Matching + Application Strategy
+
+**Date:** 2026-04-02
+
+### What was built
+
+- **Types** (`src/lib/types/database.ts`): Added `EvidenceItem`, `RequirementMatch`, `EvidenceMapping`, `ApplicationStrategy`, `EvidenceOverride`, `StrategyOverride`, `Checkpoint2Edits`; updated `ApplicationPackage.evidence_mapping/strategy/checkpoint_2_edits` from `unknown` to typed interfaces.
+- **Data layer** (`src/lib/data/application-studio.ts`): Expanded `updatePackage` to accept the three new AS2 fields.
+- **Match API** (`src/app/api/application-studio/match/route.ts`): Single Sonnet call that gathers profile, work history, knowledge items (up to 50), best-rated answers (up to 20), and profile summary; produces structured `evidence_mapping` + `strategy`; advances package to `checkpoint_2`.
+- **Checkpoint-2 API** (`src/app/api/application-studio/checkpoint-2/route.ts`): Saves user evidence overrides and strategy edits; advances package to `generating`.
+- **Studio UI** (`src/components/application-studio/studio-client.tsx`): Auto-triggers `/match` after checkpoint 1 save; full checkpoint 2 UI with match-score gauge, collapsible evidence accordion with checkbox overrides, editable strategy card (positioning, lead-with chips, gap framing, tone dropdown, template picker, narrative arc, differentiators).
+- **E2E tests** (`e2e/application-studio.spec.ts`): Added 4 tests — 401 for `/match` and `/checkpoint-2` unauthenticated; 400 for both without `package_id`.
+
+### Migration applied
+None — AS2 uses existing JSONB columns from migration 021.
+
+### Build result
+`npm run build` ✓ — 0 errors, 0 new warnings. All 73 routes compiled.
+
+### Next step
+1. Deploy: `vercel --prod --yes`
+2. Run E2E suite: `TEST_BASE_URL=https://job-application-platform-lake.vercel.app npm run test:e2e`
+3. Start Phase AS3: Opus generation (resume + cover letter) from checkpoint 2 data
