@@ -42,7 +42,6 @@ export function EmailDetail({ email, open, onOpenChange }: EmailDetailProps) {
     Pick<Application, "id" | "company" | "role">[]
   >([]);
 
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (email && !email.is_read) {
       startTransition(async () => {
@@ -51,7 +50,6 @@ export function EmailDetail({ email, open, onOpenChange }: EmailDetailProps) {
     }
     setShowReply(false);
   }, [email]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     if (open && !email?.application_id) {

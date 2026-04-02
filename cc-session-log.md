@@ -608,3 +608,32 @@ Deploy to production: `vercel --prod --yes`. Run `npm run test:e2e` against prod
 1. Apply `020_job_lead_preferences.sql` via Supabase MCP
 2. Deploy to production: `vercel --prod --yes`
 3. Run `npm run test:e2e` against production to verify all tests pass
+
+---
+
+## Phase H1 — Health Check & CLAUDE.md Overhaul
+
+**Date:** 2026-04-01
+
+### Summary
+- **CLAUDE.md overhauled:** Current State section replaced (Phase 7a → Phase H1), database tables expanded from 9 to 25, file structure updated to reflect full 17-component / 11-lib / 12-spec layout, env vars updated to include LinkedIn + Adzuna, test count updated from 26 → 111 throughout.
+- **Dead code deleted:** `src/components/layout/sidebar.tsx`, `top-bar.tsx`, `mobile-nav.tsx`, `nav-links.tsx` — all confirmed unused (layout uses `nav-rail.tsx`; none imported anywhere active).
+- **Lint fixed:** Removed unused `/* eslint-disable react-hooks/set-state-in-effect */` directive from `src/components/emails/email-detail.tsx` — `npm run lint` now reports 0 warnings.
+- **Dependencies cleaned:** Removed unused `file-saver` + `@types/file-saver` from `package.json`; fixed `@xmldom/xmldom <0.8.12` high-severity vuln via `npm audit fix` — 0 vulnerabilities remaining.
+- **Checks passed:** `npm run lint` 0 warnings, `npx tsc --noEmit` 0 errors, `npm run build` clean (68 routes generated).
+
+### Files changed
+- `CLAUDE.md` — full overhaul
+- `src/components/emails/email-detail.tsx` — removed unused eslint-disable directives
+- `src/components/layout/sidebar.tsx` — **deleted**
+- `src/components/layout/top-bar.tsx` — **deleted**
+- `src/components/layout/mobile-nav.tsx` — **deleted**
+- `src/components/layout/nav-links.tsx` — **deleted**
+- `package.json` — removed file-saver, @types/file-saver
+- `package-lock.json` — updated via npm audit fix
+
+### Test result
+No E2E run this session (no functional changes). `npm run lint` 0 warnings. `npx tsc --noEmit` 0 errors. Build clean.
+
+### Next step
+Deploy to production and run full E2E suite: `vercel --prod --yes && TEST_BASE_URL=https://job-application-platform-lake.vercel.app npm run test:e2e`
