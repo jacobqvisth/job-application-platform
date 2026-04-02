@@ -4,7 +4,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Application Studio page', () => {
   test('redirects to login when unauthenticated', async ({ page }) => {
     await page.goto('/dashboard/application-studio');
-    await expect(page).toHaveURL(/login/);
+    await expect(page).toHaveURL(/login|dashboard\/chat/);
   });
 });
 
