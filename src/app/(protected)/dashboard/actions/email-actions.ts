@@ -9,7 +9,7 @@ export async function linkEmailAction(emailId: string, applicationId: string) {
   try {
     await linkEmailToApplication(supabase, emailId, applicationId);
     revalidatePath("/dashboard/emails");
-    revalidatePath("/dashboard/applications");
+    revalidatePath("/dashboard/pipeline");
     return { success: true };
   } catch (error) {
     return { success: false, error: (error as Error).message };

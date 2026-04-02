@@ -14,8 +14,8 @@ export async function createApplicationAction(data: CreateApplicationData) {
   const supabase = await createClient();
   try {
     const application = await createApplication(supabase, data);
-    revalidatePath("/dashboard");
-    revalidatePath("/dashboard/applications");
+    revalidatePath("/dashboard/pipeline");
+    revalidatePath("/dashboard/pipeline");
     return { success: true, data: application };
   } catch (error) {
     return { success: false, error: (error as Error).message };
@@ -29,8 +29,8 @@ export async function updateApplicationAction(
   const supabase = await createClient();
   try {
     const application = await updateApplication(supabase, id, data);
-    revalidatePath("/dashboard");
-    revalidatePath("/dashboard/applications");
+    revalidatePath("/dashboard/pipeline");
+    revalidatePath("/dashboard/pipeline");
     return { success: true, data: application };
   } catch (error) {
     return { success: false, error: (error as Error).message };
@@ -41,8 +41,8 @@ export async function deleteApplicationAction(id: string) {
   const supabase = await createClient();
   try {
     await deleteApplication(supabase, id);
-    revalidatePath("/dashboard");
-    revalidatePath("/dashboard/applications");
+    revalidatePath("/dashboard/pipeline");
+    revalidatePath("/dashboard/pipeline");
     return { success: true };
   } catch (error) {
     return { success: false, error: (error as Error).message };
@@ -59,8 +59,8 @@ export async function addNoteAction(
       event_type: "note",
       description,
     });
-    revalidatePath("/dashboard");
-    revalidatePath("/dashboard/applications");
+    revalidatePath("/dashboard/pipeline");
+    revalidatePath("/dashboard/pipeline");
     return { success: true };
   } catch (error) {
     return { success: false, error: (error as Error).message };
@@ -81,8 +81,8 @@ export async function scheduleFollowupAction(
       description: `Follow-up scheduled for ${new Date(date).toLocaleDateString()}`,
       metadata: { followup_date: date },
     });
-    revalidatePath("/dashboard");
-    revalidatePath("/dashboard/applications");
+    revalidatePath("/dashboard/pipeline");
+    revalidatePath("/dashboard/pipeline");
     return { success: true };
   } catch (error) {
     return { success: false, error: (error as Error).message };

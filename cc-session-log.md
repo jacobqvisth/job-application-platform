@@ -694,3 +694,27 @@ None — AS2 uses existing JSONB columns from migration 021.
 1. Deploy: `vercel --prod --yes`
 2. Run E2E suite: `TEST_BASE_URL=https://job-application-platform-lake.vercel.app npm run test:e2e`
 3. Start Phase AS3: Opus generation (resume + cover letter) from checkpoint 2 data
+
+---
+
+## Phase P1 — Unified Pipeline Table
+
+**Date:** 2026-04-02
+
+### What was built
+
+- **`src/lib/data/pipeline.ts`**: New `PipelineItem` / `PipelineStats` types + `getPipelineData()` that merges `job_listings` (lead/saved status) with `applications` into a unified row list, handling standalone apps (no job_listing_id) and edge cases.
+- **`src/app/(protected)/dashboard/pipeline/`**: New `page.tsx` (server component fetching pipeline data, stats, sources, preferences) + `actions.ts` with `movePipelineItem()` composite action handling all pipeline transitions (lead→saved/rejected, saved→any app status via application creation, app→app status update) plus `bulkMovePipelineItems()` and `deletePipelineItem()`.
+- **`src/components/pipeline/pipeline-client.tsx`**: Full-featured table UI — sortable column headers, filter tabs (All/Lead/Saved/Applied/…/Withdrawn with counts), search bar, inline status select per row, source icons, match score badges, detail sheet (ApplicationDetail for apps, LeadDetailSheet for leads), bulk action bar, collapsible Learned Sources and My Preferences panels lifted from job-leads-client.
+- **Navigation + redirects**: Nav rail updated — removed `Applications` (Briefcase) and `Job Leads` (Target) entries, added single `Pipeline` (Layers) entry with pending-leads badge; old pages at `/dashboard/applications` and `/dashboard/job-leads` now `redirect()` to `/dashboard/pipeline`; chat tool PAGE_MAP updated; all `revalidatePath` calls updated across 5 action files.
+- **Cleanup + tests**: Deleted `kanban-board.tsx`, `job-leads-client.tsx`, `applications-client.tsx`; merged `applications.spec.ts` + `job-leads.spec.ts` into new `e2e/pipeline.spec.ts` (18 tests covering page load, filter tabs, redirects, API auth); `tsc --noEmit` 0 errors, `eslint` 0 warnings.
+
+### Migration applied
+None — no schema changes needed.
+
+### Build result
+`tsc --noEmit` ✓ 0 errors. `npm run lint` ✓ 0 warnings. Build prerender fails on `/login` due to missing Supabase env vars in local build env (pre-existing infrastructure issue, not code).
+
+### Next step
+1. Deploy: `vercel --prod --yes`
+2. Run E2E suite: `TEST_BASE_URL=https://job-application-platform-lake.vercel.app npm run test:e2e`

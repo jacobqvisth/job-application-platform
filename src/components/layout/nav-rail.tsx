@@ -20,8 +20,8 @@ import {
   UploadCloud,
   MessageCircle,
   Puzzle,
-  Target,
   Sparkles,
+  Layers,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -37,8 +37,7 @@ import {
 // Primary nav items shown in the rail
 const PRIMARY_NAV = [
   { href: "/dashboard/chat", label: "Chat", icon: MessageSquare },
-  { href: "/dashboard/applications", label: "Applications", icon: Briefcase },
-  { href: "/dashboard/job-leads", label: "Job Leads", icon: Target },
+  { href: "/dashboard/pipeline", label: "Pipeline", icon: Layers },
   { href: "/dashboard/jobs", label: "Jobs", icon: Search },
   { href: "/dashboard/draft", label: "Draft Application", icon: PenLine },
   { href: "/dashboard/application-studio", label: "Application Studio", icon: Sparkles },
@@ -60,7 +59,7 @@ const MORE_NAV = [
 // Mobile bottom tab bar (top 5)
 const MOBILE_NAV = [
   { href: "/dashboard/chat", label: "Chat", icon: MessageSquare },
-  { href: "/dashboard/applications", label: "Apps", icon: Briefcase },
+  { href: "/dashboard/pipeline", label: "Pipeline", icon: Layers },
   { href: "/dashboard/jobs", label: "Jobs", icon: Search },
   { href: "/dashboard/draft", label: "Draft", icon: PenLine },
   { href: "/dashboard/knowledge", label: "Knowledge", icon: Brain },
@@ -113,7 +112,7 @@ export function NavRail({ email, fullName, avatarUrl, pendingLeadsCount }: NavRa
         <nav className="flex flex-col items-center gap-1 py-3 flex-1 overflow-y-auto">
           {PRIMARY_NAV.map((item) => {
             const active = isActive(item.href);
-            const badge = item.href === '/dashboard/job-leads' && pendingLeadsCount > 0
+            const badge = item.href === '/dashboard/pipeline' && pendingLeadsCount > 0
               ? pendingLeadsCount
               : null;
             return (
