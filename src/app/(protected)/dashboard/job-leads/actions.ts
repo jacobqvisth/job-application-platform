@@ -58,7 +58,7 @@ export async function approveJobLead(jobListingId: string) {
     // Non-critical — don't fail the action
   }
 
-  revalidatePath("/dashboard/job-leads");
+  revalidatePath("/dashboard/pipeline");
   return { success: true };
 }
 
@@ -117,7 +117,7 @@ export async function rejectJobLead(jobListingId: string) {
     // Non-critical
   }
 
-  revalidatePath("/dashboard/job-leads");
+  revalidatePath("/dashboard/pipeline");
   return { success: true };
 }
 
@@ -135,7 +135,7 @@ export async function undoRejectJobLead(jobListingId: string) {
     .eq("user_id", user.id);
 
   if (error) return { success: false, error: error.message };
-  revalidatePath("/dashboard/job-leads");
+  revalidatePath("/dashboard/pipeline");
   return { success: true };
 }
 
@@ -153,7 +153,7 @@ export async function bulkApproveJobLeads(jobListingIds: string[]) {
     .eq("user_id", user.id);
 
   if (error) return { success: false, error: error.message };
-  revalidatePath("/dashboard/job-leads");
+  revalidatePath("/dashboard/pipeline");
   return { success: true };
 }
 
@@ -171,7 +171,7 @@ export async function bulkRejectJobLeads(jobListingIds: string[]) {
     .eq("user_id", user.id);
 
   if (error) return { success: false, error: error.message };
-  revalidatePath("/dashboard/job-leads");
+  revalidatePath("/dashboard/pipeline");
   return { success: true };
 }
 
@@ -189,7 +189,7 @@ export async function toggleAutoExtract(sourceId: string, enabled: boolean) {
     .eq("user_id", user.id);
 
   if (error) return { success: false, error: error.message };
-  revalidatePath("/dashboard/job-leads");
+  revalidatePath("/dashboard/pipeline");
   return { success: true };
 }
 
@@ -229,7 +229,7 @@ export async function toggleTrustedSource(sourceId: string, enabled: boolean) {
     .eq("user_id", user.id);
 
   if (error) return { success: false, error: error.message };
-  revalidatePath("/dashboard/job-leads");
+  revalidatePath("/dashboard/pipeline");
   return { success: true };
 }
 
@@ -247,7 +247,7 @@ export async function deleteJobEmailSource(sourceId: string) {
     .eq("user_id", user.id);
 
   if (error) return { success: false, error: error.message };
-  revalidatePath("/dashboard/job-leads");
+  revalidatePath("/dashboard/pipeline");
   return { success: true };
 }
 
@@ -272,6 +272,6 @@ export async function updateSourceDisplayName(
     .eq("user_id", user.id);
 
   if (error) return { error: error.message };
-  revalidatePath("/dashboard/job-leads");
+  revalidatePath("/dashboard/pipeline");
   return {};
 }

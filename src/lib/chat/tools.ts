@@ -862,9 +862,14 @@ Generate exactly 5 likely interview questions tailored to this role.`;
 
 const PAGE_MAP: Record<string, { url: string; pageName: string; description: string }> = {
   applications: {
-    url: '/dashboard/applications',
-    pageName: 'Applications',
-    description: 'Kanban board — drag and drop applications between stages',
+    url: '/dashboard/pipeline',
+    pageName: 'Pipeline',
+    description: 'Unified job pipeline — leads, applications, and progress tracking',
+  },
+  pipeline: {
+    url: '/dashboard/pipeline',
+    pageName: 'Pipeline',
+    description: 'Unified job pipeline — leads, applications, and progress tracking',
   },
   jobs: {
     url: '/dashboard/jobs',

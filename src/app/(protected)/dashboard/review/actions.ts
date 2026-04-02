@@ -42,5 +42,5 @@ export async function markApplicationRejectedAction(
   });
 
   revalidatePath("/dashboard/review");
-  revalidatePath("/dashboard/applications");
+  revalidatePath("/dashboard/pipeline");
 }

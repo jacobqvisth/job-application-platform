@@ -122,7 +122,7 @@ Requirements:
 
   if (error) throw new Error("Failed to save prep pack");
 
-  revalidatePath(`/dashboard/applications/${applicationId}`);
+  revalidatePath("/dashboard/pipeline");
 }
 
 export async function updateApplicationNotesAction(
@@ -143,7 +143,7 @@ export async function updateApplicationNotesAction(
 
   if (error) throw new Error("Failed to update notes");
 
-  revalidatePath(`/dashboard/applications/${id}`);
+  revalidatePath("/dashboard/pipeline");
 }
 
 function buildProfileContext(
