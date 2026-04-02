@@ -402,13 +402,27 @@
     const authEl = shadow.getElementById('jac-auth-status');
     const matchArea = shadow.getElementById('jac-match-area');
 
+    // Guard: chrome.runtime can be undefined if the extension was reloaded
+    // while this tab was already open (invalidated context). Show a recoverable
+    // message rather than throwing an uncaught TypeError.
+    if (!chrome?.runtime?.sendMessage) {
+      authEl.textContent = 'Reload the page to reconnect';
+      authEl.className = 'jac-status jac-status-warn';
+      return;
+    }
+
     chrome.runtime.sendMessage({ type: 'GET_AUTH_STATUS' }, (authResp) => {
+      if (chrome.runtime.lastError) {
+        authEl.textContent = 'Reload the page to reconnect';
+        authEl.className = 'jac-status jac-status-warn';
+        return;
+      }
       if (authResp?.authenticated) {
         authEl.textContent = 'Connected ✓';
         authEl.className = 'jac-status jac-status-ok';
 
         chrome.runtime.sendMessage({ type: 'GET_PROFILE' }, (profileResp) => {
-          if (!profileResp?.success) return;
+          if (chrome.runtime.lastError || !profileResp?.success) return;
           const score = computeMatchScore(profileResp.profile, jobData);
           if (score > 0) {
             matchArea.innerHTML = `<div class="jac-match">Match score: <strong>${score}%</strong> — skills overlap</div>`;
